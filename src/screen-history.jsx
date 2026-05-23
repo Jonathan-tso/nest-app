@@ -1,98 +1,51 @@
-/* global React, Icon, TopBar, Sparkline, BarChart, MONTHLY_HISTORY, EXPENSES_MAY, CAT, shek */
-// History — prior months + drilldown
+/* global React, Icon, TopBar, useAppState, CAT */
+
+const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
 const HistoryScreen = ({ onBack }) => {
-  const [selected, setSelected] = React.useState(MONTHLY_HISTORY[0]);
-
-  const sparkPoints = [...MONTHLY_HISTORY].reverse().map(m => m.total);
-  const bars = [...MONTHLY_HISTORY].slice(0, 6).reverse().map(m => ({
-    label: m.month.split(" ")[0].slice(0, 3),
-    value: m.total,
-    highlight: m.month === selected.month,
-  }));
+  const { state } = useAppState();
+  const expenses = state.expenses;
+  const total = expenses.reduce((s, e) => s + e.amount, 0);
 
   const byCat = {};
-  EXPENSES_MAY.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+  expenses.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
   const cats = Object.entries(byCat)
-    .map(([id, v]) => ({ ...CAT[id], value: v }))
+    .map(([id, v]) => ({ ...(CAT[id] || CAT.household), id, value: v }))
     .sort((a, b) => b.value - a.value);
 
-  const total = selected.total;
-  const overUnder = selected.budget - total;
-  const overBudget = overUnder < 0;
+  if (expenses.length === 0) {
+    return (
+      <div className="scroll">
+        <TopBar title="היסטוריה" onBack={onBack} />
+        <div className="px-22">
+          <div className="card dashed" style={{ padding: 40, textAlign: "center", background: "transparent" }}>
+            <div className="small muted" style={{ marginBottom: 4 }}>אין נתונים</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>הוצאות יופיעו כאן ברגע שתוסיף</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="scroll">
       <TopBar title="היסטוריה" onBack={onBack} />
       <div className="px-22 vstack gap-14">
         <div className="card" style={{ padding: 18 }}>
-          <div className="hstack between mb-12">
-            <div>
-              <div className="tiny">סך הכל לפי חודש</div>
-              <div className="h2 num" style={{ marginTop: 4 }}>{shek(selected.total, 0)}</div>
-              <div className="small" style={{
-                marginTop: 2,
-                color: overBudget ? "var(--danger)" : "var(--good)",
-                fontWeight: 700,
-              }}>
-                {overBudget
-                  ? `${shek(Math.abs(overUnder), 0)} מעל התקציב`
-                  : `${shek(overUnder, 0)} מתחת לתקציב`}
-              </div>
-            </div>
-            <Sparkline points={sparkPoints} width={140} height={56} />
-          </div>
-          <BarChart data={bars} height={110} />
+          <div className="tiny">סך הכל</div>
+          <div className="h1 num" style={{ marginTop: 4 }}>{shek(total, 0)}</div>
+          <div className="small muted" style={{ marginTop: 2 }}>{expenses.length} הוצאות</div>
         </div>
 
         <div>
-          <div className="h3 mb-12">חודשים קודמים</div>
-          <div className="card" style={{ padding: "4px 18px" }}>
-            {MONTHLY_HISTORY.map(m => {
-              const isCurrent = m.month === selected.month;
-              const overB = m.budget - m.total < 0;
-              return (
-                <div
-                  key={m.month}
-                  className="row"
-                  onClick={() => setSelected(m)}
-                  style={{ cursor: "pointer", opacity: isCurrent ? 1 : 0.95 }}
-                >
-                  <div className="lead bg-cream">
-                    <Icon name="calendar" size={20} color="#0E0E0E" />
-                  </div>
-                  <div className="meta">
-                    <div className="t">{m.month}</div>
-                    <div className="s">
-                      תקציב {shek(m.budget, 0)}
-                      <span style={{
-                        marginInlineStart: 6,
-                        color: overB ? "var(--danger)" : "var(--good)",
-                        fontWeight: 700,
-                      }}>
-                        {m.change > 0 ? "+" : ""}{m.change}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="trail">
-                    <div className="amt num">{shek(m.total, 0)}</div>
-                    {isCurrent && <div className="tiny" style={{ marginTop: 2, color: "var(--good)" }}>נבחר</div>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div>
-          <div className="h3 mb-12">פירוט קטגוריות — {selected.month}</div>
+          <div className="h3 mb-12">לפי קטגוריה</div>
           <div className="card" style={{ padding: 18 }}>
             <div className="vstack gap-10">
               {cats.map(cat => {
-                const pct = Math.round((cat.value / total) * 100);
+                const pct = total > 0 ? Math.round((cat.value / total) * 100) : 0;
                 return (
                   <div key={cat.id}>
-                    <div className="hstack between mb-8" style={{ marginBottom: 6 }}>
+                    <div className="hstack between" style={{ marginBottom: 6 }}>
                       <div className="hstack gap-8">
                         <div className={`bg-${cat.color}`} style={{
                           width: 22, height: 22, borderRadius: 7, display: "grid", placeItems: "center",
@@ -111,6 +64,29 @@ const HistoryScreen = ({ onBack }) => {
                 );
               })}
             </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="h3 mb-12">כל ההוצאות</div>
+          <div className="card" style={{ padding: "4px 18px" }}>
+            {expenses.map(e => {
+              const c = CAT[e.category] || CAT.household;
+              return (
+                <div key={e.id} className="row">
+                  <div className={`lead bg-${c.color}`}>
+                    <Icon name={c.icon} size={20} color="#0E0E0E" />
+                  </div>
+                  <div className="meta">
+                    <div className="t">{e.label}</div>
+                    <div className="s">{e.date}</div>
+                  </div>
+                  <div className="trail">
+                    <div className="amt num">{shek(e.amount, e.amount % 1 ? 2 : 0)}</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

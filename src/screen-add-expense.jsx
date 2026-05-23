@@ -1,7 +1,9 @@
-/* global React, Icon, Avatar, Sheet, CATEGORIES, PEOPLE, shek */
-// Add expense — bottom sheet with numeric pad + category + split + recurring
+/* global React, Icon, Avatar, Sheet, useAppState, CATEGORIES, PEOPLE */
 
-const AddExpenseSheet = ({ open, onClose, onSave }) => {
+const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
+const AddExpenseSheet = ({ open, onClose }) => {
+  const { addExpense } = useAppState();
   const [amount, setAmount] = React.useState("");
   const [category, setCategory] = React.useState("groceries");
   const [paidBy, setPaidBy] = React.useState("you");
@@ -27,7 +29,7 @@ const AddExpenseSheet = ({ open, onClose, onSave }) => {
 
   const save = () => {
     if (!canSave) return;
-    onSave && onSave({
+    addExpense({
       amount: value,
       category,
       paidBy,
@@ -47,14 +49,6 @@ const AddExpenseSheet = ({ open, onClose, onSave }) => {
             <div className="h1 num" style={{ marginTop: 4 }}>
               {amount ? shek(value, amount.includes(".") ? 2 : 0) : "₪0"}
             </div>
-          </div>
-          <div className="hstack gap-8">
-            <button className="btn icon-only ghost" style={{ width: 40, height: 40 }} title="צילום קבלה">
-              <Icon name="camera" size={18} />
-            </button>
-            <button className="btn icon-only ghost" style={{ width: 40, height: 40 }} title="AI">
-              <Icon name="sparkles" size={18} />
-            </button>
           </div>
         </div>
 
@@ -139,10 +133,7 @@ const AddExpenseSheet = ({ open, onClose, onSave }) => {
               transition: "background .15s ease",
             }}
           >
-            <div style={{
-              width: 20, height: 20, borderRadius: "50%", background: "#fff",
-              transition: "all .2s ease",
-            }} />
+            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff" }} />
           </button>
         </div>
 

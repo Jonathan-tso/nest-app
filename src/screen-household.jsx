@@ -1,16 +1,21 @@
-/* global React, Icon, Avatar, TopBar, PEOPLE, EXPENSES_MAY, shek */
-// Household — who paid what + settle up
+/* global React, Icon, Avatar, TopBar, useAppState, PEOPLE */
+
+const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
 const HouseholdScreen = ({ onBack }) => {
+  const { state } = useAppState();
+  const expenses = state.expenses;
+
   const totals = {};
   PEOPLE.forEach(p => { totals[p.id] = { paid: 0, share: 0 }; });
-  EXPENSES_MAY.forEach(e => {
+  expenses.forEach(e => {
+    if (!totals[e.paidBy]) totals[e.paidBy] = { paid: 0, share: 0 };
     totals[e.paidBy].paid += e.amount;
     if (e.split === 50) {
       PEOPLE.forEach(p => { totals[p.id].share += e.amount / 2; });
     } else if (e.split === 100) {
       const other = PEOPLE.find(p => p.id !== e.paidBy);
-      totals[other.id].share += e.amount;
+      if (other) totals[other.id].share += e.amount;
     } else if (e.split === 0) {
       totals[e.paidBy].share += e.amount;
     }
@@ -19,6 +24,7 @@ const HouseholdScreen = ({ onBack }) => {
   const youBalance = totals.you.paid - totals.you.share;
   const owedAmount = Math.abs(youBalance);
   const youOwe = youBalance < 0;
+  const hasBalance = owedAmount > 0.5;
 
   const [showSettle, setShowSettle] = React.useState(false);
 
@@ -27,21 +33,25 @@ const HouseholdScreen = ({ onBack }) => {
       <TopBar title="משק בית" onBack={onBack} />
 
       <div className="px-22 vstack gap-14">
-        <div className="card" style={{ padding: 20, background: "var(--ink)", color: "#fff", border: "none" }}>
-          <div className="tiny" style={{ color: "rgba(255,255,255,.7)" }}>מאזן</div>
-          <div style={{ fontSize: 16, fontWeight: 600, marginTop: 6 }}>
-            {youOwe ? "אתה חייב ל" : "נועה חייבת ל"}<span style={{ fontWeight: 800 }}>{youOwe ? "נועה" : "ך"}</span>
+        {hasBalance ? (
+          <div className="card" style={{ padding: 20, background: "var(--ink)", color: "#fff", border: "none" }}>
+            <div className="tiny" style={{ color: "rgba(255,255,255,.7)" }}>מאזן</div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginTop: 6 }}>
+              {youOwe ? "אתה חייב ל" : "נועה חייבת ל"}<span style={{ fontWeight: 800 }}>{youOwe ? "נועה" : "ך"}</span>
+            </div>
+            <div className="h1 num" style={{ marginTop: 8 }}>{shek(owedAmount, 0)}</div>
+            <button
+              className="btn"
+              onClick={() => setShowSettle(true)}
+              style={{ marginTop: 14, background: "#fff", color: "var(--ink)", width: "auto", padding: "0 22px" }}
+            >סגירת חשבון</button>
           </div>
-          <div className="h1 num" style={{ marginTop: 8 }}>{shek(owedAmount, 0)}</div>
-          <button
-            className="btn"
-            onClick={() => setShowSettle(true)}
-            style={{
-              marginTop: 14,
-              background: "#fff", color: "var(--ink)", width: "auto", padding: "0 22px",
-            }}
-          >סגירת חשבון</button>
-        </div>
+        ) : (
+          <div className="card" style={{ padding: 20, background: "var(--cream-soft)" }}>
+            <div className="tiny">מאזן</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6 }}>אין חוב פתוח</div>
+          </div>
+        )}
 
         <div>
           <div className="h3 mb-12">חברי הבית</div>
@@ -58,9 +68,9 @@ const HouseholdScreen = ({ onBack }) => {
                   </div>
                   <div className="trail">
                     <div className="amt num" style={{
-                      color: balance >= 0 ? "var(--good)" : "var(--danger)",
+                      color: balance > 0 ? "var(--good)" : balance < 0 ? "var(--danger)" : "var(--text)",
                     }}>
-                      {balance >= 0 ? "+" : ""}{shek(balance, 0)}
+                      {balance > 0 ? "+" : ""}{shek(balance, 0)}
                     </div>
                   </div>
                 </div>

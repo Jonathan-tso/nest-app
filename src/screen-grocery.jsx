@@ -1,7 +1,4 @@
-/* global React, Icon, Avatar, TopBar, GROCERY_INIT, GROCERY_SECTIONS, PEOPLE */
-// Grocery list — swipe to delete, tap to check, sections + add input
-
-const SECTIONS = GROCERY_SECTIONS;
+/* global React, Icon, Avatar, TopBar, useAppState, GROCERY_SECTIONS, PEOPLE */
 
 const SwipeRow = ({ children, onDelete }) => {
   const ref = React.useRef(null);
@@ -16,7 +13,6 @@ const SwipeRow = ({ children, onDelete }) => {
   };
   const onPointerMove = (e) => {
     if (!state.current.dragging) return;
-    // RTL: swipe right (positive dx) reveals action on the right (which is "start" in RTL)
     const raw = e.clientX - state.current.x0;
     const isRTL = document.documentElement.dir === "rtl";
     const dx = isRTL ? Math.max(0, raw) : Math.min(0, raw);
@@ -33,12 +29,8 @@ const SwipeRow = ({ children, onDelete }) => {
       ref.current.classList.remove("dragging");
       const inner = ref.current.querySelector(".swipe-content");
       const abs = Math.abs(state.current.dx);
-      if (abs > 70) {
-        onDelete && onDelete();
-        if (inner) inner.style.transform = "";
-      } else {
-        if (inner) inner.style.transform = "";
-      }
+      if (abs > 70) onDelete && onDelete();
+      if (inner) inner.style.transform = "";
     }
   };
 
@@ -82,11 +74,11 @@ const GroceryItem = ({ item, onToggle, onDelete }) => {
               textDecoration: item.checked ? "line-through" : "none",
               opacity: item.checked ? 0.45 : 1,
             }}>{item.name}</div>
-            <div className="small muted" style={{ marginTop: 2 }}>{item.qty}</div>
+            {item.qty && <div className="small muted" style={{ marginTop: 2 }}>{item.qty}</div>}
           </div>
         </div>
         <div className="hstack gap-8">
-          {item.suggested && <span className="ai-chip">AI</span>}
+          {item.addedBy === "ai" && <span className="ai-chip">AI</span>}
           {item.addedBy !== "ai" && author && (
             <Avatar name={author.name} color={author.color} size="sm" />
           )}
@@ -96,26 +88,21 @@ const GroceryItem = ({ item, onToggle, onDelete }) => {
   );
 };
 
-const GroceryScreen = ({ onBack, onCheckout }) => {
-  const [items, setItems] = React.useState(GROCERY_INIT);
+const GroceryScreen = ({ onBack }) => {
+  const { state, addGroceryItem, toggleGroceryItem, removeGroceryItem } = useAppState();
+  const items = state.grocery;
   const [text, setText] = React.useState("");
   const [hideChecked, setHideChecked] = React.useState(false);
-
-  const toggle = (id) => setItems(prev => prev.map(i => i.id === id ? { ...i, checked: !i.checked } : i));
-  const remove = (id) => setItems(prev => prev.filter(i => i.id !== id));
 
   const add = () => {
     const v = text.trim();
     if (!v) return;
-    setItems(prev => [
-      { id: `new-${Date.now()}`, section: "pantry", name: v, qty: "1", addedBy: "you", checked: false },
-      ...prev,
-    ]);
+    addGroceryItem({ name: v, qty: "", section: "pantry", addedBy: "you" });
     setText("");
   };
 
   const visible = items.filter(i => !hideChecked || !i.checked);
-  const grouped = SECTIONS.map(s => ({
+  const grouped = GROCERY_SECTIONS.map(s => ({
     ...s,
     items: visible.filter(i => i.section === s.id),
   })).filter(s => s.items.length > 0);
@@ -128,7 +115,7 @@ const GroceryScreen = ({ onBack, onCheckout }) => {
       <TopBar
         title="קניות"
         onBack={onBack}
-        trailing={
+        trailing={items.length > 0 ? (
           <button
             className="btn icon-only soft"
             style={{ background: "var(--cream-soft)" }}
@@ -137,32 +124,28 @@ const GroceryScreen = ({ onBack, onCheckout }) => {
           >
             <Icon name={hideChecked ? "filter" : "check"} size={18} />
           </button>
-        }
+        ) : null}
       />
       <div className="px-22 vstack gap-12">
-        <div className="card" style={{ padding: 18, background: "var(--mint)", border: "none" }}>
-          <div className="hstack between">
-            <div>
-              <div className="tiny" style={{ color: "var(--ink)", opacity: 0.7 }}>רשימת קניות</div>
-              <div className="h2" style={{ marginTop: 4 }}>{pending} פריטים</div>
+        {items.length > 0 && (
+          <div className="card" style={{ padding: 18, background: "var(--mint)", border: "none" }}>
+            <div className="tiny" style={{ color: "var(--ink)", opacity: 0.7 }}>רשימת קניות</div>
+            <div className="h2" style={{ marginTop: 4 }}>{pending} פריטים</div>
+            {done > 0 && (
               <div className="small" style={{ marginTop: 2, color: "var(--ink)", opacity: 0.7 }}>
                 {done} סומנו
               </div>
-            </div>
-            <button className="btn sm" style={{ width: "auto" }} onClick={onCheckout}>
-              <Icon name="cart" size={16} /> סיום קנייה
-            </button>
+            )}
           </div>
-        </div>
+        )}
 
         <div className="ai-input-wrap">
           <div className="ai-input-inner">
-            <span className="ai-dot" style={{ marginInlineEnd: 4 }} />
             <input
               value={text}
               onChange={e => setText(e.target.value)}
               onKeyDown={e => e.key === "Enter" && add()}
-              placeholder="הוסף פריט או ספר ל-AI…"
+              placeholder="הוסף פריט…"
             />
             <button className="ai-send" onClick={add} title="הוסף">
               <Icon name="plus" size={16} />
@@ -174,7 +157,11 @@ const GroceryScreen = ({ onBack, onCheckout }) => {
       <div style={{ marginTop: 12 }}>
         {grouped.length === 0 ? (
           <div className="small muted" style={{ padding: "40px 22px", textAlign: "center" }}>
-            {hideChecked ? "כל הפריטים סומנו" : "אין פריטים. הוסף משהו"}
+            {items.length === 0
+              ? "הרשימה ריקה. הוסף פריט או ספר ל-AI"
+              : hideChecked
+                ? "כל הפריטים סומנו"
+                : "אין פריטים"}
           </div>
         ) : grouped.map(section => (
           <div key={section.id} style={{ marginBottom: 16 }}>
@@ -192,8 +179,8 @@ const GroceryScreen = ({ onBack, onCheckout }) => {
                 <GroceryItem
                   key={item.id}
                   item={item}
-                  onToggle={() => toggle(item.id)}
-                  onDelete={() => remove(item.id)}
+                  onToggle={() => toggleGroceryItem(item.id)}
+                  onDelete={() => removeGroceryItem(item.id)}
                 />
               ))}
             </div>
