@@ -258,7 +258,6 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
     <div className="scroll">
       <div style={{ padding: "10px 22px 18px" }}>
         <div className="hstack between mb-16">
-          <NestLogo size={22} />
           <div className="hstack gap-10">
             <button className="btn icon-only soft" style={{ background: "var(--cream-soft)" }} onClick={() => nav("notifications")}>
               <Icon name="bell" size={20} />
@@ -267,6 +266,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
               <Avatar name={you?.name || "?"} color={you?.color || "sky"} />
             </div>
           </div>
+          <NestLogo size={22} />
         </div>
         <div className="hstack between" style={{ alignItems: "flex-end" }}>
           <div>

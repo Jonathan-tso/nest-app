@@ -44,7 +44,7 @@ const AddExpenseSheet = ({ open, onClose }) => {
   };
 
   return (
-    <Sheet open={open} onClose={onClose} maxHeight="96%">
+    <Sheet open={open} onClose={onClose}>
       <div className="px-22" style={{ paddingBottom: 20 }}>
         <div className="hstack between" style={{ marginTop: 2 }}>
           <div>

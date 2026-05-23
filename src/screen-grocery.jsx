@@ -52,23 +52,22 @@ const SwipeRow = ({ children, onDelete }) => {
   );
 };
 
-const GroceryItem = ({ item, people, onToggle, onDelete }) => {
+const GroceryItem = ({ item, people, onToggle, onDelete, onEdit }) => {
   const author = people.find(p => p.id === item.addedBy);
   return (
     <SwipeRow onDelete={onDelete}>
-      <div
-        className="hstack between"
-        style={{
-          padding: "12px 18px",
-          background: "var(--paper)",
-          borderBottom: "1px solid var(--line)",
-          cursor: "pointer",
-        }}
-        onClick={onToggle}
-      >
+      <div className="hstack between" style={{
+        padding: "12px 18px",
+        background: "var(--paper)",
+        borderBottom: "1px solid var(--line)",
+      }}>
         <div className="hstack gap-12" style={{ flex: 1, minWidth: 0 }}>
-          <div className={`check ${item.checked ? "on" : ""}`} />
-          <div style={{ minWidth: 0 }}>
+          <div
+            className={`check ${item.checked ? "on" : ""}`}
+            onClick={onToggle}
+            style={{ cursor: "pointer" }}
+          />
+          <div onClick={onEdit} style={{ minWidth: 0, flex: 1, cursor: "pointer" }}>
             <div style={{
               fontSize: 15, fontWeight: 600,
               textDecoration: item.checked ? "line-through" : "none",
@@ -85,6 +84,99 @@ const GroceryItem = ({ item, people, onToggle, onDelete }) => {
         </div>
       </div>
     </SwipeRow>
+  );
+};
+
+const GroceryItemSheet = ({ open, item, onClose, onUpdate, onDelete }) => {
+  const [name, setName] = React.useState("");
+  const [qty, setQty] = React.useState("");
+  const [section, setSection] = React.useState("pantry");
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open && item) {
+      setName(item.name || "");
+      setQty(item.qty || "");
+      setSection(item.section || "pantry");
+    }
+  }, [open, item]);
+
+  if (!item) return <Sheet open={false} onClose={onClose}><div /></Sheet>;
+
+  const save = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      await onUpdate(item.id, { name: name.trim(), qty: qty.trim(), section });
+      onClose && onClose();
+    } catch (e) { alert(e.message || String(e)); }
+    finally { setBusy(false); }
+  };
+
+  const del = async () => {
+    if (!confirm(`למחוק את "${item.name}"?`)) return;
+    setBusy(true);
+    try {
+      await onDelete(item.id);
+      onClose && onClose();
+    } catch (e) { alert(e.message || String(e)); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose}>
+      <div className="px-22" style={{ paddingBottom: 22 }}>
+        <div className="h2 mt-8">עריכת פריט</div>
+
+        <div className="mt-16">
+          <div className="field-label">שם</div>
+          <input className="input" value={name} onChange={e => setName(e.target.value)} autoFocus />
+        </div>
+
+        <div className="mt-16">
+          <div className="field-label">כמות</div>
+          <input
+            className="input"
+            value={qty}
+            onChange={e => setQty(e.target.value)}
+            placeholder="לדוגמה: 2 ק״ג"
+          />
+        </div>
+
+        <div className="mt-16">
+          <div className="field-label">סוג</div>
+          <div className="hstack gap-6" style={{ flexWrap: "wrap" }}>
+            {GROCERY_SECTIONS.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setSection(s.id)}
+                className={`chip ${section === s.id ? "active" : "outline"}`}
+                style={{ fontFamily: "inherit", gap: 6 }}
+              >
+                <div className={`bg-${s.color}`} style={{
+                  width: 16, height: 16, borderRadius: 5, display: "grid", placeItems: "center",
+                }}>
+                  <Icon name={s.icon} size={10} color="#0E0E0E" />
+                </div>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="vstack gap-8 mt-20">
+          <button className="btn" onClick={save} disabled={busy || !name.trim()}>שמור</button>
+          <button
+            className="btn ghost"
+            onClick={del}
+            disabled={busy}
+            style={{ color: "var(--danger)", borderColor: "var(--line)" }}
+          >
+            <Icon name="trash" size={16} /> מחק
+          </button>
+        </div>
+      </div>
+    </Sheet>
   );
 };
 
@@ -205,7 +297,7 @@ const ListActionsSheet = ({ open, list, people, onClose, onRename, onDelete, onT
 const GroceryScreen = ({ onBack }) => {
   const {
     state,
-    addGroceryItem, toggleGroceryItem, removeGroceryItem,
+    addGroceryItem, toggleGroceryItem, removeGroceryItem, updateGroceryItem,
     createGroceryList, renameGroceryList, deleteGroceryList, selectList,
     toggleListMember,
   } = useAppState();
@@ -219,16 +311,18 @@ const GroceryScreen = ({ onBack }) => {
   );
 
   const [text, setText] = React.useState("");
+  const [section, setSection] = React.useState("pantry");
   const [hideChecked, setHideChecked] = React.useState(false);
   const [newListName, setNewListName] = React.useState(null);
   const [actingOnList, setActingOnList] = React.useState(null);
+  const [editingItem, setEditingItem] = React.useState(null);
 
   const add = async () => {
     const v = text.trim();
     if (!v || !selectedListId) return;
     setText("");
     try {
-      await addGroceryItem({ name: v, qty: "", section: "pantry", listId: selectedListId });
+      await addGroceryItem({ name: v, qty: "", section, listId: selectedListId });
     } catch (e) {
       alert(e.message || String(e));
       setText(v);
@@ -372,37 +466,90 @@ const GroceryScreen = ({ onBack }) => {
 
           <div className="px-22 vstack gap-12">
             {selectedList && (
-              <div className="card" style={{ padding: 18, background: "var(--mint)", border: "none" }}>
-                <div className="tiny" style={{ color: "var(--ink)", opacity: 0.7 }}>{selectedList.name}</div>
-                <div className="h2" style={{ marginTop: 4 }}>
-                  {items.length === 0 ? "רשימה ריקה" : `${pending} פריטים`}
-                </div>
-                {done > 0 && (
-                  <div className="small" style={{ marginTop: 2, color: "var(--ink)", opacity: 0.7 }}>
-                    {done} סומנו
+              <div
+                className="card"
+                onClick={() => setActingOnList(selectedList)}
+                style={{
+                  padding: 18, background: "var(--mint)", border: "none",
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: 12,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="tiny" style={{ color: "var(--ink)", opacity: 0.7 }}>{selectedList.name}</div>
+                  <div className="h2" style={{ marginTop: 4 }}>
+                    {items.length === 0 ? "רשימה ריקה" : `${pending} פריטים`}
                   </div>
-                )}
+                  {done > 0 && (
+                    <div className="small" style={{ marginTop: 2, color: "var(--ink)", opacity: 0.7 }}>
+                      {done} סומנו
+                    </div>
+                  )}
+                </div>
+                <div
+                  aria-label="עריכת הרשימה"
+                  style={{
+                    width: 36, height: 36, borderRadius: 12,
+                    background: "rgba(255,255,255,.4)",
+                    display: "grid", placeItems: "center", flexShrink: 0,
+                  }}
+                >
+                  <Icon name="more" size={18} color="var(--ink)" />
+                </div>
               </div>
             )}
 
-            <div className="ai-input-wrap">
-              <div className="ai-input-inner">
-                <input
-                  value={text}
-                  onChange={e => setText(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && add()}
-                  placeholder={selectedListId ? "הוסף פריט…" : "בחר רשימה כדי להוסיף"}
-                  disabled={!selectedListId}
-                />
+            <div style={{
+              background: "var(--paper)",
+              border: "1px solid var(--line)",
+              borderRadius: 18,
+              padding: 6,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}>
+              <input
+                value={text}
+                onChange={e => setText(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && add()}
+                placeholder={selectedListId ? "הוסף פריט…" : "בחר רשימה כדי להוסיף"}
+                disabled={!selectedListId}
+                style={{
+                  flex: 1, border: "none", background: "transparent", outline: "none",
+                  padding: "10px 14px", fontSize: 15, fontFamily: "inherit", minWidth: 0,
+                }}
+              />
+              <button
+                onClick={add}
+                title="הוסף"
+                disabled={!selectedListId || !text.trim()}
+                style={{
+                  width: 40, height: 40, borderRadius: 14, border: "none",
+                  background: "var(--ink)", color: "#fff",
+                  display: "grid", placeItems: "center", cursor: "pointer",
+                  opacity: (!selectedListId || !text.trim()) ? 0.4 : 1,
+                  flexShrink: 0,
+                }}
+              >
+                <Icon name="plus" size={18} />
+              </button>
+            </div>
+
+            <div className="hstack gap-6" style={{ overflowX: "auto", paddingBottom: 2 }}>
+              {GROCERY_SECTIONS.map(s => (
                 <button
-                  className="ai-send"
-                  onClick={add}
-                  title="הוסף"
-                  disabled={!selectedListId || !text.trim()}
+                  key={s.id}
+                  onClick={() => setSection(s.id)}
+                  className={`chip ${section === s.id ? "active" : "outline"}`}
+                  style={{ fontFamily: "inherit", flexShrink: 0, gap: 6 }}
                 >
-                  <Icon name="plus" size={16} />
+                  <div className={`bg-${s.color}`} style={{
+                    width: 16, height: 16, borderRadius: 5, display: "grid", placeItems: "center",
+                  }}>
+                    <Icon name={s.icon} size={10} color="#0E0E0E" />
+                  </div>
+                  {s.label}
                 </button>
-              </div>
+              ))}
             </div>
           </div>
 
@@ -415,25 +562,26 @@ const GroceryScreen = ({ onBack }) => {
                     ? "כל הפריטים סומנו"
                     : "אין פריטים"}
               </div>
-            ) : grouped.map(section => (
-              <div key={section.id} style={{ marginBottom: 16 }}>
+            ) : grouped.map(sec => (
+              <div key={sec.id} style={{ marginBottom: 16 }}>
                 <div className="hstack gap-8" style={{ padding: "10px 22px 6px" }}>
-                  <div className={`bg-${section.color}`} style={{
+                  <div className={`bg-${sec.color}`} style={{
                     width: 22, height: 22, borderRadius: 7, display: "grid", placeItems: "center",
                   }}>
-                    <Icon name={section.icon} size={12} color="#0E0E0E" />
+                    <Icon name={sec.icon} size={12} color="#0E0E0E" />
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{section.label}</div>
-                  <span className="tiny" style={{ marginInlineStart: "auto" }}>{section.items.length}</span>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{sec.label}</div>
+                  <span className="tiny" style={{ marginInlineStart: "auto" }}>{sec.items.length}</span>
                 </div>
                 <div style={{ background: "var(--paper)" }}>
-                  {section.items.map(item => (
+                  {sec.items.map(item => (
                     <GroceryItem
                       key={item.id}
                       item={item}
                       people={people}
                       onToggle={() => toggleGroceryItem(item.id)}
                       onDelete={() => removeGroceryItem(item.id)}
+                      onEdit={() => setEditingItem(item)}
                     />
                   ))}
                 </div>
@@ -451,6 +599,14 @@ const GroceryScreen = ({ onBack }) => {
         onRename={renameGroceryList}
         onDelete={deleteGroceryList}
         onToggleMember={toggleListMember}
+      />
+
+      <GroceryItemSheet
+        open={!!editingItem}
+        item={editingItem && allItems.find(i => i.id === editingItem.id)}
+        onClose={() => setEditingItem(null)}
+        onUpdate={updateGroceryItem}
+        onDelete={removeGroceryItem}
       />
     </div>
   );

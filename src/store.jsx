@@ -369,6 +369,18 @@ const AppStateProvider = ({ children }) => {
     setGrocery(prev => prev.filter(g => g.id !== id));
     await supabase.from("grocery_items").delete().eq("id", id);
   };
+  const updateGroceryItem = async (id, patch) => {
+    if (!supabase) return;
+    const dbPatch = {};
+    if ("name" in patch)    dbPatch.name    = patch.name;
+    if ("qty" in patch)     dbPatch.qty     = patch.qty;
+    if ("section" in patch) dbPatch.section = patch.section;
+    if ("checked" in patch) dbPatch.checked = patch.checked;
+    const { data, error } = await supabase
+      .from("grocery_items").update(dbPatch).eq("id", id).select().single();
+    if (error) throw error;
+    setGrocery(prev => prev.map(g => g.id === id ? mapGrocery(data) : g));
+  };
 
   // ===== Person actions =====
   const updateMyProfile = async (patch) => {
@@ -526,7 +538,7 @@ const AppStateProvider = ({ children }) => {
     pending, hydrating,
     addExpense, updateExpense, removeExpense,
     addBill, updateBill, removeBill,
-    addGroceryItem, toggleGroceryItem, removeGroceryItem,
+    addGroceryItem, toggleGroceryItem, removeGroceryItem, updateGroceryItem,
     createGroceryList, renameGroceryList, deleteGroceryList, selectList,
     setListMembers, toggleListMember,
     updateMyProfile, removeMember, createInvite,
