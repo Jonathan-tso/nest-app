@@ -174,7 +174,6 @@ const GroceryPreview = ({ items, people, onOpen, onAdd }) => {
 };
 
 const RecentTransactions = ({ expenses, people, limit = 3, onSeeAll }) => {
-  if (expenses.length === 0) return null;
   const recent = expenses.slice(0, limit);
   return (
     <div>
@@ -184,26 +183,32 @@ const RecentTransactions = ({ expenses, people, limit = 3, onSeeAll }) => {
           <span className="small" style={{ fontWeight: 700, cursor: "pointer" }} onClick={onSeeAll}>הכל</span>
         )}
       </div>
-      <div className="card" style={{ padding: "4px 18px" }}>
-        {recent.map(e => {
-          const c = CAT[e.category] || CAT.household;
-          const author = people.find(p => p.id === e.paidBy);
-          return (
-            <div key={e.id} className="row">
-              <div className={`lead bg-${c.color}`}>
-                <Icon name={c.icon} size={20} color="#0E0E0E" />
+      {expenses.length === 0 ? (
+        <div className="card" style={{ padding: 18, textAlign: "center" }}>
+          <div className="small muted">עדיין אין הוצאות. ספר ל-AI או הוסף ידנית.</div>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: "4px 18px" }}>
+          {recent.map(e => {
+            const c = CAT[e.category] || CAT.household;
+            const author = people.find(p => p.id === e.paidBy);
+            return (
+              <div key={e.id} className="row">
+                <div className={`lead bg-${c.color}`}>
+                  <Icon name={c.icon} size={20} color="#0E0E0E" />
+                </div>
+                <div className="meta">
+                  <div className="t">{e.label}</div>
+                  <div className="s">{e.date}{author ? ` · ${author.name}` : ""}</div>
+                </div>
+                <div className="trail">
+                  <div className="amt num">{shek(e.amount, e.amount % 1 ? 2 : 0)}</div>
+                </div>
               </div>
-              <div className="meta">
-                <div className="t">{e.label}</div>
-                <div className="s">{e.date}{author ? ` · ${author.name}` : ""}</div>
-              </div>
-              <div className="trail">
-                <div className="amt num">{shek(e.amount, e.amount % 1 ? 2 : 0)}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -286,9 +291,8 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
         <AIInput onSubmit={onAISubmit} />
         <OverdueBills bills={bills} people={people} onOpen={openBills} />
         <BalanceCard balance={balance} people={people} onSettle={() => nav("household")} />
-        {expenses.length === 0 && bills.length === 0 && grocery.length === 0 && <EmptyHomeHint />}
+        <SpendOverview expenses={expenses} budget={budget} />
         <GroceryPreview items={grocery} people={people} onOpen={openGrocery} onAdd={openGrocery} />
-        {expenses.length > 0 && <SpendOverview expenses={expenses} budget={budget} />}
         <RecentTransactions expenses={expenses} people={people} limit={3} onSeeAll={openHistory} />
       </div>
     </div>
