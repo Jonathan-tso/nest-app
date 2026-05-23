@@ -1,8 +1,12 @@
-/* global React */
+/* global React, ReactDOM */
 // Generic bottom sheet — mount-on-open, unmount-after-close.
-// While closed the sheet is absent from the DOM, so it can never
-// contribute to the page's scrollable height or leak its drop shadow
-// into the page behind it.
+//
+// Rendered through a React portal to .phone-inner so the sheet's
+// `position: absolute; bottom: 0` resolves relative to the phone
+// frame, not whichever screen's scroll container the sheet was
+// declared inside. Without the portal, a scrollable parent drags the
+// sheet's anchor down with its content on mobile WebKit, which makes
+// the sheet open below the visible viewport.
 
 const Sheet = ({ open, onClose, children }) => {
   const sheetRef = React.useRef(null);
@@ -13,9 +17,6 @@ const Sheet = ({ open, onClose, children }) => {
   React.useEffect(() => {
     if (open) {
       setMounted(true);
-      // Two RAFs so the browser paints the initial (closed) frame
-      // before we flip to the open class — otherwise CSS skips the
-      // transition.
       const id = requestAnimationFrame(() => {
         requestAnimationFrame(() => setShown(true));
       });
@@ -57,8 +58,12 @@ const Sheet = ({ open, onClose, children }) => {
   };
 
   if (!mounted) return null;
+  const target = typeof document !== "undefined"
+    ? (document.querySelector(".phone-inner") || document.body)
+    : null;
+  if (!target) return null;
 
-  return (
+  return ReactDOM.createPortal(
     <>
       <div className={`scrim ${shown ? "open" : ""}`} onClick={onClose} />
       <div
@@ -75,11 +80,12 @@ const Sheet = ({ open, onClose, children }) => {
         >
           <div className="grip" />
         </div>
-        <div style={{ overflowY: "auto", flex: 1, overscrollBehavior: "contain" }}>
+        <div style={{ overflowY: "auto", flex: 1, minHeight: 0, overscrollBehavior: "contain" }}>
           {children}
         </div>
       </div>
-    </>
+    </>,
+    target,
   );
 };
 
