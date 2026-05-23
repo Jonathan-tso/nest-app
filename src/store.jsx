@@ -46,6 +46,7 @@ const mapList = (r) => ({
   name: r.name,
   createdBy: r.created_by,
   createdAt: r.created_at,
+  memberIds: Array.isArray(r.member_ids) ? r.member_ids : [],
 });
 const mapChat = (r) => ({ role: r.role, content: r.content });
 
@@ -295,13 +296,40 @@ const AppStateProvider = ({ children }) => {
     if (!trimmed) throw new Error("שם רשימה חובה");
     const { data, error } = await supabase
       .from("grocery_lists")
-      .insert({ household_id: householdId, name: trimmed, created_by: userId })
+      .insert({
+        household_id: householdId,
+        name: trimmed,
+        created_by: userId,
+        member_ids: userId ? [userId] : [],
+      })
       .select().single();
     if (error) throw error;
     const list = mapList(data);
     setGroceryLists(prev => prev.some(l => l.id === list.id) ? prev : [...prev, list]);
     setSelectedListId(list.id);
     return list;
+  };
+
+  const setListMembers = async (listId, memberIds) => {
+    const unique = Array.from(new Set(memberIds.filter(Boolean)));
+    const { data, error } = await supabase
+      .from("grocery_lists")
+      .update({ member_ids: unique })
+      .eq("id", listId)
+      .select().single();
+    if (error) throw error;
+    setGroceryLists(prev => prev.map(l => l.id === listId ? mapList(data) : l));
+    return mapList(data);
+  };
+
+  const toggleListMember = async (listId, profileId) => {
+    const list = stateRef.current.groceryLists.find(l => l.id === listId);
+    if (!list) return;
+    const has = list.memberIds.includes(profileId);
+    const next = has
+      ? list.memberIds.filter(id => id !== profileId)
+      : [...list.memberIds, profileId];
+    await setListMembers(listId, next);
   };
 
   const renameGroceryList = async (id, name) => {
@@ -500,6 +528,7 @@ const AppStateProvider = ({ children }) => {
     addBill, updateBill, removeBill,
     addGroceryItem, toggleGroceryItem, removeGroceryItem,
     createGroceryList, renameGroceryList, deleteGroceryList, selectList,
+    setListMembers, toggleListMember,
     updateMyProfile, removeMember, createInvite,
     setApiKey, setModel, setBudget, saveSettings,
     clearChat, wipeHousehold,
