@@ -221,6 +221,33 @@ begin
   delete from household_members where household_id = hh and profile_id = target_profile;
 end $$;
 
+-- ============ Realtime ============
+-- Subscribe the shared tables to the realtime publication so partners see
+-- each other's edits live. household_members is included so a member being
+-- removed gets a state push.
+
+do $$
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+end $$;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['expenses','bills','grocery_items','household_members'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+
 create or replace function wipe_household()
   returns void language plpgsql security definer as $$
 declare hh uuid;
