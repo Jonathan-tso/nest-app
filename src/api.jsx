@@ -249,7 +249,7 @@ async function callClaude({ apiKey, model = "claude-haiku-4-5", messages, people
 // Base44 Superagent integration
 // Base URL is copied from Superagent Settings > API (pattern: https://www.base44.app/api/apps/{app_id})
 const BASE44_SUPERAGENT_API_KEY = "d9e3bb73c59444bd85463687f04d42cf";
-const BASE44_SUPERAGENT_BASE_URL = "https://www.base44.app/api/apps/d9e3bb73c59444bd85463687f04d42cf";
+const BASE44_SUPERAGENT_BASE_URL = "https://app.base44.com/api/agents/6a11ef9dc0a53cfd1e279e71";
 
 async function callBase44Superagent({ message, conversationId }) {
   const headers = {
