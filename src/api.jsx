@@ -246,4 +246,56 @@ async function callClaude({ apiKey, model = "claude-haiku-4-5", messages, people
   return await resp.json();
 }
 
-Object.assign(window, { callClaude, executeTool, buildTools, buildSystemPrompt });
+// Base44 Superagent integration
+// Base URL is copied from Superagent Settings > API (pattern: https://www.base44.app/api/apps/{app_id})
+const BASE44_SUPERAGENT_API_KEY = "d9e3bb73c59444bd85463687f04d42cf";
+const BASE44_SUPERAGENT_BASE_URL = "https://www.base44.app/api/apps/d9e3bb73c59444bd85463687f04d42cf";
+
+async function callBase44Superagent({ message, conversationId }) {
+  const headers = {
+    "Authorization": `Bearer ${BASE44_SUPERAGENT_API_KEY}`,
+    "Content-Type": "application/json",
+  };
+
+  let convId = conversationId;
+
+  if (!convId) {
+    const createResp = await fetch(`${BASE44_SUPERAGENT_BASE_URL}/agents/conversations`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({}),
+    });
+    if (!createResp.ok) {
+      let detail = "";
+      try {
+        const errBody = await createResp.json();
+        detail = errBody?.error?.message || JSON.stringify(errBody).slice(0, 200);
+      } catch (e) {
+        detail = await createResp.text().catch(() => "");
+      }
+      throw new Error(`${createResp.status} — ${detail || "failed to create conversation"}`);
+    }
+    const conv = await createResp.json();
+    convId = conv.id;
+  }
+
+  const msgResp = await fetch(`${BASE44_SUPERAGENT_BASE_URL}/agents/conversations/${convId}/messages`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ content: message }),
+  });
+  if (!msgResp.ok) {
+    let detail = "";
+    try {
+      const errBody = await msgResp.json();
+      detail = errBody?.error?.message || JSON.stringify(errBody).slice(0, 200);
+    } catch (e) {
+      detail = await msgResp.text().catch(() => "");
+    }
+    throw new Error(`${msgResp.status} — ${detail || "failed to send message"}`);
+  }
+  const assistantMsg = await msgResp.json();
+  return { conversationId: convId, content: assistantMsg.content };
+}
+
+Object.assign(window, { callClaude, callBase44Superagent, BASE44_SUPERAGENT_API_KEY, executeTool, buildTools, buildSystemPrompt });

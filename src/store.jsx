@@ -63,9 +63,14 @@ const AppStateProvider = ({ children }) => {
   const [selectedListId, setSelectedListId] = React.useState(null);
   const [people, setPeople] = React.useState([]);
   const [chat, setChat] = React.useState([]);
-  const [settings, setSettings] = React.useState({ apiKey: "", model: "claude-haiku-4-5", budget: 8200 });
+  const [settings, setSettings] = React.useState({ apiKey: window.BASE44_SUPERAGENT_API_KEY || "enabled", model: "claude-haiku-4-5", budget: 8200 });
   const [pending, setPending] = React.useState(false);
   const [hydrating, setHydrating] = React.useState(true);
+
+  // Persist Base44 Superagent conversation_id across messages (localStorage-backed ref)
+  const superagentConvIdRef = React.useRef(
+    typeof localStorage !== "undefined" ? (localStorage.getItem("superagent_conversation_id") || null) : null
+  );
 
   // Track latest snapshot for tool execution / closures
   const stateRef = React.useRef({});
@@ -120,7 +125,7 @@ const AppStateProvider = ({ children }) => {
       setChat((chmR.data || []).map(mapChat));
       if (stR.data) {
         setSettings({
-          apiKey: stR.data.api_key || "",
+          apiKey: window.BASE44_SUPERAGENT_API_KEY || "enabled",
           model: stR.data.model || "claude-haiku-4-5",
           budget: stR.data.budget || 8200,
         });
@@ -442,6 +447,8 @@ const AppStateProvider = ({ children }) => {
 
   const clearChat = async () => {
     setChat([]);
+    superagentConvIdRef.current = null;
+    localStorage.removeItem("superagent_conversation_id");
     if (supabase && userId) {
       await supabase.from("chat_messages").delete().eq("profile_id", userId);
     }
@@ -453,76 +460,32 @@ const AppStateProvider = ({ children }) => {
     setExpenses([]); setBills([]); setGrocery([]);
   };
 
-  // ===== Chat orchestration =====
+  // ===== Chat orchestration (Base44 Superagent) =====
   const sendChatMessage = async (text) => {
-    if (!text || !text.trim()) return;
-    const cur = stateRef.current;
-    const apiKey = cur.settings.apiKey;
-    if (!apiKey) return;
+    if (!text || !text.trim() || pending) return;
 
     const userMsg = { role: "user", content: text };
-    let history = [...cur.chat, userMsg];
+    const history = [...stateRef.current.chat, userMsg];
     setChat(history);
     persistChat(userMsg);
     setPending(true);
 
-    // local working data for tool execution within this turn
-    let working = {
-      expenses: cur.expenses, bills: cur.bills, grocery: cur.grocery,
-      people: cur.people, budget: cur.settings.budget,
-    };
-
     try {
-      for (let i = 0; i < 6; i++) {
-        const resp = await window.callClaude({
-          apiKey, model: cur.settings.model,
-          messages: history, people: cur.people,
-        });
-        const assistantMsg = { role: "assistant", content: resp.content };
-        history = [...history, assistantMsg];
-        setChat(history);
-        persistChat(assistantMsg);
+      const { conversationId, content } = await window.callBase44Superagent({
+        message: text,
+        conversationId: superagentConvIdRef.current,
+      });
 
-        if (resp.stop_reason !== "tool_use") break;
-
-        const toolResults = [];
-        for (const block of resp.content) {
-          if (block.type === "tool_use") {
-            // pure tool: gives back result + next-working snapshot
-            const { result, next } = window.executeTool(block.name, block.input, {
-              ...working,
-              userId,
-            });
-            working = next;
-            // persist write side-effects to DB
-            try {
-              if (block.name === "add_expense" && result.ok && result.row) {
-                await addExpense(result.row);
-              } else if (block.name === "add_bill" && result.ok && result.row) {
-                await addBill(result.row);
-              } else if (block.name === "add_grocery_item" && result.ok && result.row) {
-                await addGroceryItem(result.row);
-              } else if (block.name === "mark_bill_paid" && result.ok) {
-                await updateBill(result.id, { paid: result.paid, status: result.paid ? "paid" : "upcoming" });
-              }
-            } catch (dbErr) {
-              result.ok = false;
-              result.error = `שגיאת DB: ${dbErr.message || dbErr}`;
-            }
-            toolResults.push({
-              type: "tool_result",
-              tool_use_id: block.id,
-              content: typeof result === "string" ? result : JSON.stringify(result),
-            });
-          }
-        }
-        const trMsg = { role: "user", content: toolResults };
-        history = [...history, trMsg];
-        setChat(history);
-        persistChat(trMsg);
+      if (conversationId !== superagentConvIdRef.current) {
+        superagentConvIdRef.current = conversationId;
+        localStorage.setItem("superagent_conversation_id", conversationId);
       }
+
+      const assistantMsg = { role: "assistant", content };
+      setChat([...history, assistantMsg]);
+      persistChat(assistantMsg);
     } catch (err) {
-      const errMsg = { role: "assistant", content: [{ type: "text", text: `שגיאה: ${err.message}` }] };
+      const errMsg = { role: "assistant", content: `שגיאה: ${err.message}` };
       setChat([...history, errMsg]);
       persistChat(errMsg);
     } finally {
