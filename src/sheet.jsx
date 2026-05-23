@@ -80,7 +80,7 @@ const Sheet = ({ open, onClose, children }) => {
         >
           <div className="grip" />
         </div>
-        <div style={{ overflowY: "auto", flex: 1, minHeight: 0, overscrollBehavior: "contain" }}>
+        <div style={{ overflowY: "auto", overflowX: "hidden", flex: 1, minHeight: 0, overscrollBehavior: "contain" }}>
           {children}
         </div>
       </div>
