@@ -1,11 +1,11 @@
-/* global React, Icon, TopBar, Sheet, useAppState, CAT, CATEGORIES, PEOPLE */
+/* global React, Icon, TopBar, Sheet, useAppState, CAT, CATEGORIES */
 // Bills screen — list + detail sheet with edit/undo
 
 const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
-const BillRow = ({ bill, onPay, onPick }) => {
+const BillRow = ({ bill, people, onPay, onPick }) => {
   const c = CAT[bill.category] || CAT.household;
-  const assignee = PEOPLE.find(p => p.id === bill.assignee);
+  const assignee = people.find(p => p.id === bill.assignee);
   const overdue = bill.status === "overdue";
   const paid = bill.paid;
   return (
@@ -43,7 +43,7 @@ const BillRow = ({ bill, onPay, onPick }) => {
   );
 };
 
-const BillDetailSheet = ({ bill, onClose, onUpdate, onDelete }) => {
+const BillDetailSheet = ({ bill, people, onClose, onUpdate, onDelete }) => {
   const [label, setLabel] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [category, setCategory] = React.useState("rent");
@@ -142,8 +142,8 @@ const BillDetailSheet = ({ bill, onClose, onUpdate, onDelete }) => {
 
           <div className="mt-16">
             <div className="field-label">אחראי תשלום</div>
-            <div className="hstack gap-8">
-              {PEOPLE.map(p => (
+            <div className="hstack gap-8" style={{ flexWrap: "wrap" }}>
+              {people.map(p => (
                 <button
                   key={p.id}
                   onClick={() => setAssignee(p.id)}
@@ -189,7 +189,7 @@ const BillDetailSheet = ({ bill, onClose, onUpdate, onDelete }) => {
   );
 };
 
-const AddBillSheet = ({ open, onClose, onAdd }) => {
+const AddBillSheet = ({ open, people, onClose, onAdd }) => {
   const [label, setLabel] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [category, setCategory] = React.useState("rent");
@@ -262,8 +262,8 @@ const AddBillSheet = ({ open, onClose, onAdd }) => {
 
         <div className="mt-16">
           <div className="field-label">אחראי</div>
-          <div className="hstack gap-8">
-            {PEOPLE.map(p => (
+          <div className="hstack gap-8" style={{ flexWrap: "wrap" }}>
+            {people.map(p => (
               <button key={p.id} onClick={() => setAssignee(p.id)}
                 className={`chip ${assignee === p.id ? "active" : "outline"}`}
                 style={{ fontFamily: "inherit", height: 36, padding: "0 14px" }}>{p.name}</button>
@@ -292,6 +292,7 @@ const AddBillSheet = ({ open, onClose, onAdd }) => {
 const BillsScreen = ({ onBack }) => {
   const { state, addBill, updateBill, removeBill } = useAppState();
   const bills = state.bills;
+  const people = state.people;
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState(null);
   const [adding, setAdding] = React.useState(false);
@@ -353,7 +354,7 @@ const BillsScreen = ({ onBack }) => {
         ) : (
           <div className="card" style={{ padding: "4px 18px" }}>
             {filtered.map(b => (
-              <BillRow key={b.id} bill={b} onPay={payBill} onPick={setSelected} />
+              <BillRow key={b.id} bill={b} people={people} onPay={payBill} onPick={setSelected} />
             ))}
           </div>
         )}
@@ -361,11 +362,12 @@ const BillsScreen = ({ onBack }) => {
 
       <BillDetailSheet
         bill={selected}
+        people={people}
         onClose={() => setSelected(null)}
         onUpdate={updateBill}
         onDelete={removeBill}
       />
-      <AddBillSheet open={adding} onClose={() => setAdding(false)} onAdd={addBill} />
+      <AddBillSheet open={adding} people={people} onClose={() => setAdding(false)} onAdd={addBill} />
     </div>
   );
 };

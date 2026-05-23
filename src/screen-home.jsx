@@ -1,20 +1,29 @@
-/* global React, Icon, Avatar, AvatarStack, NestLogo, Donut, useAppState, CAT, PEOPLE */
+/* global React, Icon, Avatar, AvatarStack, NestLogo, Donut, useAppState, CAT */
 // Home / Summary screen
 
 const { useState } = React;
 
 const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
-const computeBalance = (expenses) => {
-  let youPaid = 0, noaPaid = 0;
+const computeBalance = (expenses, people) => {
+  const you = people.find(p => p.owner) || people[0];
+  if (!you || people.length < 2) return 0;
+  let youPaid = 0, othersPaid = 0;
   expenses.forEach(e => {
-    if (e.paidBy === "you") youPaid += e.amount;
-    else if (e.paidBy === "noa") noaPaid += e.amount;
+    if (e.paidBy === you.id) youPaid += e.amount;
+    else othersPaid += e.amount;
   });
-  return (youPaid - noaPaid) / 2; // positive: noa owes you; negative: you owe noa
+  // fair share if 50/50 across household members
+  const youShare = expenses.reduce((s, e) => {
+    if (e.split === 50) return s + e.amount / Math.max(people.length, 1);
+    if (e.split === 100 && e.paidBy !== you.id) return s + e.amount / Math.max(people.length - 1, 1);
+    if (e.split === 0 && e.paidBy === you.id) return s + e.amount;
+    return s;
+  }, 0);
+  return youPaid - youShare;
 };
 
-const OverdueBills = ({ bills, onOpen }) => {
+const OverdueBills = ({ bills, people, onOpen }) => {
   const overdue = bills.filter(b => b.status === "overdue");
   if (!overdue.length) return null;
   return (
@@ -31,7 +40,7 @@ const OverdueBills = ({ bills, onOpen }) => {
         </div>
         {overdue.map(b => {
           const c = CAT[b.category] || CAT.household;
-          const assignee = PEOPLE.find(p => p.id === b.assignee);
+          const assignee = people.find(p => p.id === b.assignee);
           return (
             <div key={b.id} className="hstack between" style={{ marginTop: 14 }}>
               <div className="hstack gap-12">
@@ -83,21 +92,26 @@ const SpendOverview = ({ expenses, budget }) => {
   );
 };
 
-const BalanceCard = ({ balance, onSettle }) => {
+const BalanceCard = ({ balance, people, onSettle }) => {
   if (Math.abs(balance) < 0.5) return null;
   const youOwe = balance < 0;
+  const others = people.filter(p => !p.owner);
+  const counterpart = others[0]; // simple: first non-owner
+  if (!counterpart) return null;
   return (
     <div className="card" style={{ padding: 18, background: "var(--cream-soft)" }}>
       <div className="hstack between">
         <div className="vstack gap-4">
           <div className="tiny">מאזן</div>
           <div style={{ fontSize: 15, fontWeight: 600 }}>
-            {youOwe ? "אתה חייב ל" : "נועה חייבת ל"}<span style={{ fontWeight: 800 }}>{youOwe ? "נועה" : "ך"}</span>
+            {youOwe
+              ? <>אתה חייב ל<span style={{ fontWeight: 800 }}>{counterpart.name}</span></>
+              : <><span style={{ fontWeight: 800 }}>{counterpart.name}</span> חייב{counterpart.name?.endsWith("ה") ? "ת" : ""} לך</>}
           </div>
           <div className="h2 num" style={{ marginTop: 2 }}>{shek(Math.abs(balance), 0)}</div>
         </div>
         <div className="vstack" style={{ alignItems: "center", gap: 6 }}>
-          <AvatarStack people={[{ name: "Daniel", color: "sky" }, { name: "Noa", color: "mint" }]} size="" />
+          <AvatarStack people={people} size="" />
           <button className="btn sm" style={{ width: "auto" }} onClick={onSettle}>סגירה</button>
         </div>
       </div>
@@ -105,7 +119,7 @@ const BalanceCard = ({ balance, onSettle }) => {
   );
 };
 
-const GroceryPreview = ({ items, onOpen, onAdd }) => {
+const GroceryPreview = ({ items, people, onOpen, onAdd }) => {
   const pending = items.filter(i => !i.checked);
   if (items.length === 0) {
     return (
@@ -143,7 +157,7 @@ const GroceryPreview = ({ items, onOpen, onAdd }) => {
       </div>
       <div className="vstack gap-6">
         {top.map(item => {
-          const author = PEOPLE.find(p => p.id === item.addedBy);
+          const author = people.find(p => p.id === item.addedBy);
           return (
             <div key={item.id} className="hstack between" style={{ padding: "6px 0" }}>
               <div className="hstack gap-10">
@@ -163,7 +177,7 @@ const GroceryPreview = ({ items, onOpen, onAdd }) => {
   );
 };
 
-const RecentTransactions = ({ expenses, limit = 3, onSeeAll }) => {
+const RecentTransactions = ({ expenses, people, limit = 3, onSeeAll }) => {
   if (expenses.length === 0) return null;
   const recent = expenses.slice(0, limit);
   return (
@@ -177,7 +191,7 @@ const RecentTransactions = ({ expenses, limit = 3, onSeeAll }) => {
       <div className="card" style={{ padding: "4px 18px" }}>
         {recent.map(e => {
           const c = CAT[e.category] || CAT.household;
-          const author = PEOPLE.find(p => p.id === e.paidBy);
+          const author = people.find(p => p.id === e.paidBy);
           return (
             <div key={e.id} className="row">
               <div className={`lead bg-${c.color}`}>
@@ -239,9 +253,10 @@ const AIInput = ({ onSubmit }) => {
 
 const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onAISubmit }) => {
   const { state } = useAppState();
-  const { expenses, bills, grocery, budget } = state;
+  const { expenses, bills, grocery, budget, people } = state;
   const totalSpent = expenses.reduce((s, e) => s + e.amount, 0);
-  const balance = computeBalance(expenses);
+  const balance = computeBalance(expenses, people);
+  const you = people.find(p => p.owner) || people[0];
 
   return (
     <div className="scroll">
@@ -252,12 +267,14 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
             <button className="btn icon-only soft" style={{ background: "var(--cream-soft)" }} onClick={() => nav("notifications")}>
               <Icon name="bell" size={20} />
             </button>
-            <Avatar name="דניאל" color="sky" />
+            <div onClick={() => nav("household")} style={{ cursor: "pointer" }}>
+              <Avatar name={you?.name || "?"} color={you?.color || "sky"} />
+            </div>
           </div>
         </div>
         <div className="hstack between" style={{ alignItems: "flex-end" }}>
           <div>
-            <div className="small muted">היי דניאל</div>
+            <div className="small muted">היי {you?.name || ""}</div>
             <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2, letterSpacing: "-0.02em" }}>
               {totalSpent > 0 ? "מבט על החודש" : "נתחיל"}
             </div>
@@ -271,12 +288,12 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
 
       <div className="vstack gap-16 px-22">
         <AIInput onSubmit={onAISubmit} />
-        <OverdueBills bills={bills} onOpen={openBills} />
-        <BalanceCard balance={balance} onSettle={() => nav("household")} />
+        <OverdueBills bills={bills} people={people} onOpen={openBills} />
+        <BalanceCard balance={balance} people={people} onSettle={() => nav("household")} />
         {expenses.length === 0 && bills.length === 0 && grocery.length === 0 && <EmptyHomeHint />}
-        <GroceryPreview items={grocery} onOpen={openGrocery} onAdd={openGrocery} />
+        <GroceryPreview items={grocery} people={people} onOpen={openGrocery} onAdd={openGrocery} />
         {expenses.length > 0 && <SpendOverview expenses={expenses} budget={budget} />}
-        <RecentTransactions expenses={expenses} limit={3} onSeeAll={openHistory} />
+        <RecentTransactions expenses={expenses} people={people} limit={3} onSeeAll={openHistory} />
       </div>
     </div>
   );

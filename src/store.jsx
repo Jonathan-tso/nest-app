@@ -7,7 +7,8 @@ const initialState = () => ({
   expenses: [],
   bills: [],
   grocery: [],
-  chat: [],     // Anthropic API conversation: [{role, content}]
+  chat: [],
+  people: window.DEFAULT_PEOPLE,
   budget: 8200,
   apiKey: "",
   model: "claude-haiku-4-5",
@@ -82,6 +83,26 @@ const AppStateProvider = ({ children }) => {
   const setModel = (m) => setState(p => ({ ...p, model: m }));
   const setBudget = (b) => setState(p => ({ ...p, budget: b }));
 
+  const addPerson = (input) => {
+    const name = (input.name || "").trim();
+    if (!name) return null;
+    const id = `p-${Date.now()}-${Math.random().toString(36).slice(2,5)}`;
+    const person = {
+      id,
+      name,
+      color: input.color || "mint",
+      short: input.short || name.split(/\s+/)[0].slice(0, 2),
+    };
+    setState(p => ({ ...p, people: [...p.people, person] }));
+    return person;
+  };
+  const updatePerson = (id, patch) => {
+    setState(p => ({ ...p, people: p.people.map(x => x.id === id ? { ...x, ...patch } : x) }));
+  };
+  const removePerson = (id) => {
+    setState(p => ({ ...p, people: p.people.filter(x => x.id !== id) }));
+  };
+
   const clearChat = () => setState(p => ({ ...p, chat: [] }));
 
   const resetAll = () => {
@@ -112,6 +133,7 @@ const AppStateProvider = ({ children }) => {
           apiKey: cur.apiKey,
           model: cur.model,
           messages: history,
+          people: stateRef.current.people,
         });
         history = [...history, { role: "assistant", content: resp.content }];
         setState(p => ({ ...p, chat: history }));
@@ -166,6 +188,7 @@ const AppStateProvider = ({ children }) => {
     addBill, updateBill, removeBill,
     addGroceryItem, toggleGroceryItem, removeGroceryItem,
     setApiKey, setModel, setBudget,
+    addPerson, updatePerson, removePerson,
     sendChatMessage, clearChat,
     resetAll,
   };
