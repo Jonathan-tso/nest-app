@@ -88,48 +88,7 @@ const GroceryItem = ({ item, people, onToggle, onDelete }) => {
   );
 };
 
-const CreateListSheet = ({ open, onClose, onCreate }) => {
-  const [name, setName] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
-  const [err, setErr] = React.useState("");
-  React.useEffect(() => { if (open) { setName(""); setErr(""); } }, [open]);
-  const submit = async () => {
-    const v = name.trim();
-    if (!v) return;
-    setBusy(true); setErr("");
-    try {
-      await onCreate(v);
-      onClose && onClose();
-    } catch (e) {
-      setErr(e.message || String(e));
-    } finally { setBusy(false); }
-  };
-  return (
-    <Sheet open={open} onClose={onClose}>
-      <div className="px-22" style={{ paddingBottom: 22 }}>
-        <div className="h2 mt-8">רשימה חדשה</div>
-        <div className="small muted mt-4">לדוגמה: ערב שבת, סופר חודשי, בית מרקחת.</div>
-        <div className="mt-16">
-          <div className="field-label">שם הרשימה</div>
-          <input
-            className="input"
-            autoFocus
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && submit()}
-            placeholder="שם הרשימה…"
-          />
-        </div>
-        {err && <div className="small mt-12" style={{ color: "var(--danger)", fontWeight: 600 }}>{err}</div>}
-        <button className="btn mt-16" onClick={submit} disabled={busy || !name.trim()}>
-          {busy ? "רגע…" : "צור רשימה"}
-        </button>
-      </div>
-    </Sheet>
-  );
-};
-
-const ListActionsSheet = ({ open, list, onClose, onRename, onDelete }) => {
+const ListActionsSheet = ({ open, list, people, onClose, onRename, onDelete, onToggleMember }) => {
   const [renaming, setRenaming] = React.useState(false);
   const [name, setName] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -140,11 +99,13 @@ const ListActionsSheet = ({ open, list, onClose, onRename, onDelete }) => {
 
   if (!list) return <Sheet open={false} onClose={onClose}><div /></Sheet>;
 
+  const memberIds = list.memberIds || [];
+
   const doRename = async () => {
     const v = name.trim();
     if (!v || v === list.name) { setRenaming(false); return; }
     setBusy(true);
-    try { await onRename(list.id, v); onClose && onClose(); }
+    try { await onRename(list.id, v); setRenaming(false); }
     catch (e) { alert(e.message || String(e)); }
     finally { setBusy(false); }
   };
@@ -157,13 +118,19 @@ const ListActionsSheet = ({ open, list, onClose, onRename, onDelete }) => {
     finally { setBusy(false); }
   };
 
+  const toggleMember = async (profileId) => {
+    setBusy(true);
+    try { await onToggleMember(list.id, profileId); }
+    catch (e) { alert(e.message || String(e)); }
+    finally { setBusy(false); }
+  };
+
   return (
     <Sheet open={open} onClose={onClose}>
       <div className="px-22" style={{ paddingBottom: 22 }}>
-        <div className="h2 mt-8">{list.name}</div>
-
         {renaming ? (
           <>
+            <div className="h2 mt-8">שנה שם רשימה</div>
             <div className="mt-16">
               <div className="field-label">שם חדש</div>
               <input
@@ -182,19 +149,53 @@ const ListActionsSheet = ({ open, list, onClose, onRename, onDelete }) => {
             </button>
           </>
         ) : (
-          <div className="vstack gap-8 mt-16">
-            <button className="btn ghost" onClick={() => setRenaming(true)} disabled={busy}>
-              <Icon name="settings" size={16} /> שנה שם
-            </button>
-            <button
-              className="btn ghost"
-              onClick={doDelete}
-              disabled={busy}
-              style={{ color: "var(--danger)", borderColor: "var(--line)" }}
-            >
-              <Icon name="trash" size={16} /> מחק רשימה
-            </button>
-          </div>
+          <>
+            <div className="h2 mt-8">{list.name}</div>
+
+            <div className="mt-16">
+              <div className="field-label">משתתפים</div>
+              <div className="vstack gap-6" style={{ marginTop: 4 }}>
+                {people.map(p => {
+                  const on = memberIds.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => toggleMember(p.id)}
+                      disabled={busy}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        padding: "10px 12px", borderRadius: 14, cursor: "pointer",
+                        background: on ? "var(--cream-soft)" : "transparent",
+                        border: `1px solid ${on ? "var(--line-strong)" : "var(--line)"}`,
+                        fontFamily: "inherit", width: "100%", textAlign: "right",
+                      }}
+                    >
+                      <Avatar name={p.name} color={p.color} size="sm" />
+                      <div style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>
+                        {p.name}
+                        {p.isYou && <span className="tiny" style={{ marginInlineStart: 8, color: "var(--text-3)" }}>· את/ה</span>}
+                      </div>
+                      <div className={`check ${on ? "on" : ""}`} style={{ pointerEvents: "none" }} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="vstack gap-8 mt-16">
+              <button className="btn ghost" onClick={() => setRenaming(true)} disabled={busy}>
+                <Icon name="settings" size={16} /> שנה שם
+              </button>
+              <button
+                className="btn ghost"
+                onClick={doDelete}
+                disabled={busy}
+                style={{ color: "var(--danger)", borderColor: "var(--line)" }}
+              >
+                <Icon name="trash" size={16} /> מחק רשימה
+              </button>
+            </div>
+          </>
         )}
       </div>
     </Sheet>
@@ -206,6 +207,7 @@ const GroceryScreen = ({ onBack }) => {
     state,
     addGroceryItem, toggleGroceryItem, removeGroceryItem,
     createGroceryList, renameGroceryList, deleteGroceryList, selectList,
+    toggleListMember,
   } = useAppState();
   const lists = state.groceryLists;
   const selectedListId = state.selectedListId;
@@ -218,7 +220,7 @@ const GroceryScreen = ({ onBack }) => {
 
   const [text, setText] = React.useState("");
   const [hideChecked, setHideChecked] = React.useState(false);
-  const [creatingList, setCreatingList] = React.useState(false);
+  const [newListName, setNewListName] = React.useState(null);
   const [actingOnList, setActingOnList] = React.useState(null);
 
   const add = async () => {
@@ -233,6 +235,19 @@ const GroceryScreen = ({ onBack }) => {
     }
   };
 
+  const startCreateList = () => setNewListName("");
+  const cancelCreateList = () => setNewListName(null);
+  const submitCreateList = async () => {
+    const v = (newListName || "").trim();
+    if (!v) { setNewListName(null); return; }
+    try {
+      await createGroceryList(v);
+      setNewListName(null);
+    } catch (e) {
+      alert(e.message || String(e));
+    }
+  };
+
   const visible = items.filter(i => !hideChecked || !i.checked);
   const grouped = GROCERY_SECTIONS.map(s => ({
     ...s,
@@ -244,7 +259,7 @@ const GroceryScreen = ({ onBack }) => {
   const selectedList = lists.find(l => l.id === selectedListId);
 
   return (
-    <div className="scroll" style={{ paddingBottom: 130 }}>
+    <div className="scroll">
       <TopBar
         title="קניות"
         onBack={onBack}
@@ -263,7 +278,7 @@ const GroceryScreen = ({ onBack }) => {
             <button
               className="btn icon-only soft"
               style={{ background: "var(--cream-soft)" }}
-              onClick={() => setCreatingList(true)}
+              onClick={startCreateList}
               title="רשימה חדשה"
             >
               <Icon name="plus" size={18} />
@@ -274,17 +289,38 @@ const GroceryScreen = ({ onBack }) => {
 
       {lists.length === 0 ? (
         <div className="px-22">
-          <button
-            onClick={() => setCreatingList(true)}
-            className="card dashed"
-            style={{
-              background: "transparent", padding: 32, textAlign: "center", cursor: "pointer",
-              fontFamily: "inherit", width: "100%",
-            }}
-          >
-            <div className="small muted" style={{ marginBottom: 8 }}>אין עדיין רשימות קניות</div>
-            <div style={{ fontSize: 15, fontWeight: 700 }}>+ צור רשימה ראשונה</div>
-          </button>
+          {newListName !== null ? (
+            <div className="card dashed" style={{
+              background: "transparent", padding: 22, textAlign: "center",
+            }}>
+              <div className="small muted" style={{ marginBottom: 10 }}>איך נקרא לרשימה?</div>
+              <input
+                className="input"
+                autoFocus
+                value={newListName}
+                onChange={e => setNewListName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") submitCreateList();
+                  if (e.key === "Escape") cancelCreateList();
+                }}
+                onBlur={() => { if (!(newListName || "").trim()) cancelCreateList(); }}
+                placeholder="שם הרשימה…"
+                style={{ textAlign: "center" }}
+              />
+            </div>
+          ) : (
+            <button
+              onClick={startCreateList}
+              className="card dashed"
+              style={{
+                background: "transparent", padding: 22, textAlign: "center", cursor: "pointer",
+                fontFamily: "inherit", width: "100%",
+              }}
+            >
+              <div className="small muted" style={{ marginBottom: 6 }}>אין עדיין רשימות קניות</div>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>+ צור רשימה ראשונה</div>
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -306,17 +342,39 @@ const GroceryScreen = ({ onBack }) => {
                   {l.name}
                 </button>
               ))}
-              <button
-                className="chip outline"
-                onClick={() => setCreatingList(true)}
-                style={{
-                  fontFamily: "inherit", flexShrink: 0,
-                  borderStyle: "dashed",
-                }}
-                title="רשימה חדשה"
-              >
-                + חדשה
-              </button>
+              {newListName !== null ? (
+                <input
+                  autoFocus
+                  className="chip"
+                  value={newListName}
+                  onChange={e => setNewListName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") submitCreateList();
+                    if (e.key === "Escape") cancelCreateList();
+                  }}
+                  onBlur={() => { if (!(newListName || "").trim()) cancelCreateList(); }}
+                  placeholder="שם רשימה…"
+                  style={{
+                    fontFamily: "inherit", flexShrink: 0,
+                    border: "1.5px dashed var(--line-strong)",
+                    background: "transparent", outline: "none",
+                    minWidth: 110, width: 130,
+                    fontSize: 13, fontWeight: 600,
+                  }}
+                />
+              ) : (
+                <button
+                  className="chip outline"
+                  onClick={startCreateList}
+                  style={{
+                    fontFamily: "inherit", flexShrink: 0,
+                    borderStyle: "dashed",
+                  }}
+                  title="רשימה חדשה"
+                >
+                  + חדשה
+                </button>
+              )}
             </div>
           </div>
 
@@ -393,17 +451,14 @@ const GroceryScreen = ({ onBack }) => {
         </>
       )}
 
-      <CreateListSheet
-        open={creatingList}
-        onClose={() => setCreatingList(false)}
-        onCreate={createGroceryList}
-      />
       <ListActionsSheet
         open={!!actingOnList}
-        list={actingOnList}
+        list={actingOnList && lists.find(l => l.id === actingOnList.id)}
+        people={people}
         onClose={() => setActingOnList(null)}
         onRename={renameGroceryList}
         onDelete={deleteGroceryList}
+        onToggleMember={toggleListMember}
       />
     </div>
   );
