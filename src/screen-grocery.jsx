@@ -372,16 +372,35 @@ const GroceryScreen = ({ onBack }) => {
 
           <div className="px-22 vstack gap-12">
             {selectedList && (
-              <div className="card" style={{ padding: 18, background: "var(--mint)", border: "none" }}>
-                <div className="tiny" style={{ color: "var(--ink)", opacity: 0.7 }}>{selectedList.name}</div>
-                <div className="h2" style={{ marginTop: 4 }}>
-                  {items.length === 0 ? "רשימה ריקה" : `${pending} פריטים`}
-                </div>
-                {done > 0 && (
-                  <div className="small" style={{ marginTop: 2, color: "var(--ink)", opacity: 0.7 }}>
-                    {done} סומנו
+              <div
+                className="card"
+                onClick={() => setActingOnList(selectedList)}
+                style={{
+                  padding: 18, background: "var(--mint)", border: "none",
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: 12,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="tiny" style={{ color: "var(--ink)", opacity: 0.7 }}>{selectedList.name}</div>
+                  <div className="h2" style={{ marginTop: 4 }}>
+                    {items.length === 0 ? "רשימה ריקה" : `${pending} פריטים`}
                   </div>
-                )}
+                  {done > 0 && (
+                    <div className="small" style={{ marginTop: 2, color: "var(--ink)", opacity: 0.7 }}>
+                      {done} סומנו
+                    </div>
+                  )}
+                </div>
+                <div
+                  aria-label="עריכת הרשימה"
+                  style={{
+                    width: 36, height: 36, borderRadius: 12,
+                    background: "rgba(255,255,255,.4)",
+                    display: "grid", placeItems: "center", flexShrink: 0,
+                  }}
+                >
+                  <Icon name="more" size={18} color="var(--ink)" />
+                </div>
               </div>
             )}
 

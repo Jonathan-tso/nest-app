@@ -4,7 +4,7 @@
 // contribute to the page's scrollable height or leak its drop shadow
 // into the page behind it.
 
-const Sheet = ({ open, onClose, children, height = "auto", maxHeight = "92%" }) => {
+const Sheet = ({ open, onClose, children }) => {
   const sheetRef = React.useRef(null);
   const dragState = React.useRef({ y0: 0, dy: 0, dragging: false });
   const [mounted, setMounted] = React.useState(open);
@@ -64,7 +64,6 @@ const Sheet = ({ open, onClose, children, height = "auto", maxHeight = "92%" }) 
       <div
         ref={sheetRef}
         className={`sheet ${shown ? "open" : ""}`}
-        style={{ maxHeight, height }}
       >
         <div
           className="grip-wrap"

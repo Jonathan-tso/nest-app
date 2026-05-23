@@ -80,7 +80,7 @@ const BillDetailSheet = ({ bill, people, onClose, onUpdate, onDelete }) => {
   const c = bill ? (CAT[bill.category] || CAT.household) : null;
 
   return (
-    <Sheet open={!!bill} onClose={onClose} maxHeight="92%">
+    <Sheet open={!!bill} onClose={onClose}>
       {bill && (
         <div className="px-22" style={{ paddingBottom: 20 }}>
           <div className="hstack gap-12 mt-8">
@@ -222,7 +222,7 @@ const AddBillSheet = ({ open, people, onClose, onAdd }) => {
   };
 
   return (
-    <Sheet open={open} onClose={onClose} maxHeight="92%">
+    <Sheet open={open} onClose={onClose}>
       <div className="px-22" style={{ paddingBottom: 20 }}>
         <div className="h2 mt-8">חשבון חדש</div>
 
