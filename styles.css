@@ -352,10 +352,9 @@ body {
   max-height: 92%;
   display: flex; flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 -20px 60px rgba(20,18,14,.18);
   touch-action: pan-y;
 }
-.sheet.open { transform: translateY(0); }
+.sheet.open { transform: translateY(0); box-shadow: 0 -20px 60px rgba(20,18,14,.18); }
 .sheet.dragging { transition: none; }
 .sheet .grip {
   width: 44px; height: 5px; border-radius: 3px; background: var(--line-strong);

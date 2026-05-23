@@ -1,4 +1,4 @@
-/* global React, Icon, Avatar, TopBar, Sheet, useAppState, GROCERY_SECTIONS */
+/* global React, Icon, Avatar, TopBar, Sheet, InlineNameInput, useAppState, GROCERY_SECTIONS */
 
 const SwipeRow = ({ children, onDelete }) => {
   const ref = React.useRef(null);
@@ -133,12 +133,12 @@ const ListActionsSheet = ({ open, list, people, onClose, onRename, onDelete, onT
             <div className="h2 mt-8">שנה שם רשימה</div>
             <div className="mt-16">
               <div className="field-label">שם חדש</div>
-              <input
+              <InlineNameInput
                 className="input"
                 value={name}
-                onChange={e => setName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && doRename()}
-                autoFocus
+                onChange={setName}
+                onSubmit={doRename}
+                onCancel={() => setRenaming(false)}
               />
             </div>
             <button className="btn mt-16" onClick={doRename} disabled={busy || !name.trim()}>
@@ -294,16 +294,12 @@ const GroceryScreen = ({ onBack }) => {
               background: "transparent", padding: 22, textAlign: "center",
             }}>
               <div className="small muted" style={{ marginBottom: 10 }}>איך נקרא לרשימה?</div>
-              <input
+              <InlineNameInput
                 className="input"
-                autoFocus
                 value={newListName}
-                onChange={e => setNewListName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter") submitCreateList();
-                  if (e.key === "Escape") cancelCreateList();
-                }}
-                onBlur={() => { if (!(newListName || "").trim()) cancelCreateList(); }}
+                onChange={setNewListName}
+                onSubmit={submitCreateList}
+                onCancel={cancelCreateList}
                 placeholder="שם הרשימה…"
                 style={{ textAlign: "center" }}
               />
@@ -343,16 +339,12 @@ const GroceryScreen = ({ onBack }) => {
                 </button>
               ))}
               {newListName !== null ? (
-                <input
-                  autoFocus
+                <InlineNameInput
                   className="chip"
                   value={newListName}
-                  onChange={e => setNewListName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") submitCreateList();
-                    if (e.key === "Escape") cancelCreateList();
-                  }}
-                  onBlur={() => { if (!(newListName || "").trim()) cancelCreateList(); }}
+                  onChange={setNewListName}
+                  onSubmit={submitCreateList}
+                  onCancel={cancelCreateList}
                   placeholder="שם רשימה…"
                   style={{
                     fontFamily: "inherit", flexShrink: 0,

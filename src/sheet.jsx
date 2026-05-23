@@ -1,9 +1,37 @@
 /* global React */
-// Generic bottom sheet with drag-to-dismiss gesture
+// Generic bottom sheet — mount-on-open, unmount-after-close.
+// While closed the sheet is absent from the DOM, so it can never
+// contribute to the page's scrollable height or leak its drop shadow
+// into the page behind it.
 
 const Sheet = ({ open, onClose, children, height = "auto", maxHeight = "92%" }) => {
   const sheetRef = React.useRef(null);
   const dragState = React.useRef({ y0: 0, dy: 0, dragging: false });
+  const [mounted, setMounted] = React.useState(open);
+  const [shown, setShown] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setMounted(true);
+      // Two RAFs so the browser paints the initial (closed) frame
+      // before we flip to the open class — otherwise CSS skips the
+      // transition.
+      const id = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setShown(true));
+      });
+      return () => cancelAnimationFrame(id);
+    }
+    setShown(false);
+    const t = setTimeout(() => setMounted(false), 360);
+    return () => clearTimeout(t);
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") onClose && onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
   const onPointerDown = (e) => {
     dragState.current.dragging = true;
@@ -28,19 +56,14 @@ const Sheet = ({ open, onClose, children, height = "auto", maxHeight = "92%" }) 
     if (dragState.current.dy > 100) onClose && onClose();
   };
 
-  React.useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => { if (e.key === "Escape") onClose && onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  if (!mounted) return null;
 
   return (
     <>
-      <div className={`scrim ${open ? "open" : ""}`} onClick={onClose} />
+      <div className={`scrim ${shown ? "open" : ""}`} onClick={onClose} />
       <div
         ref={sheetRef}
-        className={`sheet ${open ? "open" : ""}`}
+        className={`sheet ${shown ? "open" : ""}`}
         style={{ maxHeight, height }}
       >
         <div
