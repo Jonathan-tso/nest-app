@@ -252,15 +252,13 @@ const BASE44_SUPERAGENT_API_KEY = "d9e3bb73c59444bd85463687f04d42cf";
 const BASE44_SUPERAGENT_BASE_URL = "https://app.base44.com/api/agents/6a11ef9dc0a53cfd1e279e71";
 
 async function callBase44Superagent({ message, conversationId }) {
-  const headers = {
-    "Authorization": `Bearer ${BASE44_SUPERAGENT_API_KEY}`,
-    "Content-Type": "application/json",
-  };
+  const headers = { "Content-Type": "application/json" };
+  const authParam = `api_key=${BASE44_SUPERAGENT_API_KEY}`;
 
   let convId = conversationId;
 
   if (!convId) {
-    const createResp = await fetch(`${BASE44_SUPERAGENT_BASE_URL}/agents/conversations`, {
+    const createResp = await fetch(`${BASE44_SUPERAGENT_BASE_URL}/conversations?${authParam}`, {
       method: "POST",
       headers,
       body: JSON.stringify({}),
@@ -269,7 +267,7 @@ async function callBase44Superagent({ message, conversationId }) {
       let detail = "";
       try {
         const errBody = await createResp.json();
-        detail = errBody?.error?.message || JSON.stringify(errBody).slice(0, 200);
+        detail = errBody?.error?.message || errBody?.message || JSON.stringify(errBody).slice(0, 200);
       } catch (e) {
         detail = await createResp.text().catch(() => "");
       }
@@ -279,16 +277,16 @@ async function callBase44Superagent({ message, conversationId }) {
     convId = conv.id;
   }
 
-  const msgResp = await fetch(`${BASE44_SUPERAGENT_BASE_URL}/agents/conversations/${convId}/messages`, {
+  const msgResp = await fetch(`${BASE44_SUPERAGENT_BASE_URL}/conversations/${convId}/messages?${authParam}`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ content: message }),
+    body: JSON.stringify({ content: message, role: "user" }),
   });
   if (!msgResp.ok) {
     let detail = "";
     try {
       const errBody = await msgResp.json();
-      detail = errBody?.error?.message || JSON.stringify(errBody).slice(0, 200);
+      detail = errBody?.error?.message || errBody?.message || JSON.stringify(errBody).slice(0, 200);
     } catch (e) {
       detail = await msgResp.text().catch(() => "");
     }
