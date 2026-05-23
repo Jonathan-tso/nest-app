@@ -114,6 +114,28 @@ const extractToolUses = (content) => {
   return content.filter(b => b.type === "tool_use");
 };
 
+const renderBold = (text) => {
+  const parts = text.split(/\*\*(.*?)\*\*/g);
+  return parts.map((part, i) =>
+    i % 2 === 1 ? <strong key={i}>{part}</strong> : part
+  );
+};
+
+const ThinkingIndicator = () => {
+  const words = ["Reading", "Thinking", "Writing"];
+  const [idx, setIdx] = React.useState(0);
+  React.useEffect(() => {
+    const t = setInterval(() => setIdx(i => (i + 1) % words.length), 1400);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="bubble ai" style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}>
+      <span style={{ fontWeight: 700, color: "var(--ink)" }}>Nest</span>
+      <span key={idx} className="ai-text" style={{ animation: "fadeUp 0.35s ease both" }}>{words[idx]}</span>
+    </div>
+  );
+};
+
 const TOOL_LABELS = {
   add_expense:      "הוצאה נוספה",
   add_bill:         "חשבון נוסף",
@@ -191,7 +213,7 @@ const AIChat = ({ onBack }) => {
           const tools = extractToolUses(m.content);
           return (
             <div key={m.idx} className="vstack" style={{ alignItems: "flex-start", gap: 6 }}>
-              {txt && <div className="bubble ai">{txt}</div>}
+              {txt && <div className="bubble ai">{renderBold(txt)}</div>}
               {tools.length > 0 && (
                 <div className="hstack gap-6" style={{ flexWrap: "wrap", maxWidth: "80%" }}>
                   {tools.map(t => (
@@ -205,13 +227,7 @@ const AIChat = ({ onBack }) => {
           );
         })}
 
-        {pending && (
-          <div className="bubble ai" style={{ display: "inline-flex", gap: 4, alignSelf: "flex-start" }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-2)", animation: "fadeUp 0.6s ease infinite alternate" }} />
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-2)", animation: "fadeUp 0.6s 0.15s ease infinite alternate" }} />
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-2)", animation: "fadeUp 0.6s 0.3s ease infinite alternate" }} />
-          </div>
-        )}
+        {pending && <ThinkingIndicator />}
       </div>
 
       <div style={{ flexShrink: 0, padding: "8px 22px 22px", background: "var(--paper)" }}>
