@@ -8,7 +8,7 @@ const Icon = ({ name, size = 22, stroke = 1.8, color = "currentColor" }) => {
   const s = size;
   const c = color;
   const sw = stroke;
-  const directional = ["back", "forward", "chevron", "chevronLeft", "send", "arrow"];
+  const directional = ["forward", "chevron", "chevronLeft", "send", "arrow"];
   const isRTL = typeof document !== "undefined" && document.documentElement.dir === "rtl";
   const flip = directional.includes(name) && isRTL;
   const common = {
@@ -24,7 +24,7 @@ const Icon = ({ name, size = 22, stroke = 1.8, color = "currentColor" }) => {
     bell: <><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2H4.5L6 16Z" /><path d="M10 20a2 2 0 0 0 4 0" /></>,
     user: <><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5" /></>,
     plus: <><path d="M12 5v14M5 12h14" /></>,
-    back: <><path d="M15 6l-6 6 6 6" /></>,
+    back: <><path d="M9 6l6 6-6 6" /></>,
     forward: <><path d="M9 6l6 6-6 6" /></>,
     sparkles: <><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3Z" /><path d="M19 16l.7 2L21.5 19l-1.8.7L19 22l-.7-2.3L16.5 19l1.8-.7L19 16Z" /></>,
     camera: <><path d="M5 7h2.5l1.2-1.8a1 1 0 0 1 .85-.45h4.9a1 1 0 0 1 .85.45L16.5 7H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" /><circle cx="12" cy="13" r="3.5" /></>,
@@ -123,15 +123,18 @@ const TopBar = ({ title, onBack, trailing }) =>
 
 
 // ====== Logo ======
-const NestLogo = ({ size = 22 }) =>
-<div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path d="M3 12 12 4l9 8" stroke="#0E0E0E" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M5 11v9h14v-9" stroke="#0E0E0E" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="12" cy="15" r="2.2" fill="#0E0E0E" />
-    </svg>
+const NestLogo = ({ size = 22 }) => (
+  <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <img
+      src="./nest-logo.svg"
+      alt=""
+      height={size}
+      width={Math.round(size * 753 / 855)}
+      style={{ display: "block" }}
+    />
     <span style={{ fontSize: size, fontWeight: 800, letterSpacing: "-0.04em" }}>Nest</span>
-  </div>;
+  </div>
+);
 
 
 // ====== Donut chart ======

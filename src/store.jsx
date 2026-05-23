@@ -39,6 +39,13 @@ const mapGrocery = (r) => ({
   section: r.section || "pantry",
   addedBy: r.added_by,
   checked: !!r.checked,
+  listId: r.list_id || null,
+});
+const mapList = (r) => ({
+  id: r.id,
+  name: r.name,
+  createdBy: r.created_by,
+  createdAt: r.created_at,
 });
 const mapChat = (r) => ({ role: r.role, content: r.content });
 
@@ -51,6 +58,8 @@ const AppStateProvider = ({ children }) => {
   const [expenses, setExpenses] = React.useState([]);
   const [bills, setBills] = React.useState([]);
   const [grocery, setGrocery] = React.useState([]);
+  const [groceryLists, setGroceryLists] = React.useState([]);
+  const [selectedListId, setSelectedListId] = React.useState(null);
   const [people, setPeople] = React.useState([]);
   const [chat, setChat] = React.useState([]);
   const [settings, setSettings] = React.useState({ apiKey: "", model: "claude-haiku-4-5", budget: 8200 });
@@ -60,8 +69,8 @@ const AppStateProvider = ({ children }) => {
   // Track latest snapshot for tool execution / closures
   const stateRef = React.useRef({});
   React.useEffect(() => {
-    stateRef.current = { expenses, bills, grocery, people, chat, settings };
-  }, [expenses, bills, grocery, people, chat, settings]);
+    stateRef.current = { expenses, bills, grocery, groceryLists, selectedListId, people, chat, settings };
+  }, [expenses, bills, grocery, groceryLists, selectedListId, people, chat, settings]);
 
   // ===== Hydrate =====
   const refetchMembers = React.useCallback(async () => {
@@ -92,10 +101,11 @@ const AppStateProvider = ({ children }) => {
     setHydrating(true);
 
     (async () => {
-      const [expR, bilR, groR, chmR, stR] = await Promise.all([
+      const [expR, bilR, groR, listsR, chmR, stR] = await Promise.all([
         supabase.from("expenses").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
         supabase.from("bills").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
         supabase.from("grocery_items").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
+        supabase.from("grocery_lists").select("*").eq("household_id", householdId).order("created_at", { ascending: true }),
         supabase.from("chat_messages").select("*").eq("profile_id", userId).order("created_at", { ascending: true }),
         supabase.from("user_settings").select("*").eq("profile_id", userId).maybeSingle(),
       ]);
@@ -103,6 +113,9 @@ const AppStateProvider = ({ children }) => {
       setExpenses((expR.data || []).map(mapExpense));
       setBills((bilR.data || []).map(mapBill));
       setGrocery((groR.data || []).map(mapGrocery));
+      const lists = (listsR.data || []).map(mapList);
+      setGroceryLists(lists);
+      setSelectedListId(prev => (prev && lists.some(l => l.id === prev)) ? prev : (lists[0]?.id || null));
       setChat((chmR.data || []).map(mapChat));
       if (stR.data) {
         setSettings({
@@ -153,6 +166,18 @@ const AppStateProvider = ({ children }) => {
             setGrocery(prev => prev.map(g => g.id === payload.new.id ? mapGrocery(payload.new) : g));
           } else if (payload.eventType === "DELETE") {
             setGrocery(prev => prev.filter(g => g.id !== payload.old.id));
+          }
+        })
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "grocery_lists", filter: `household_id=eq.${householdId}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setGroceryLists(prev => prev.some(l => l.id === payload.new.id) ? prev : [...prev, mapList(payload.new)]);
+          } else if (payload.eventType === "UPDATE") {
+            setGroceryLists(prev => prev.map(l => l.id === payload.new.id ? mapList(payload.new) : l));
+          } else if (payload.eventType === "DELETE") {
+            setGroceryLists(prev => prev.filter(l => l.id !== payload.old.id));
+            setSelectedListId(prev => prev === payload.old.id ? null : prev);
           }
         })
       .on("postgres_changes",
@@ -239,14 +264,23 @@ const AppStateProvider = ({ children }) => {
     setBills(prev => prev.filter(x => x.id !== id));
   };
 
+  const resolveAddedBy = (val) => {
+    if (val === "ai") return null;
+    if (!val || val === "you") return userId;
+    return val;
+  };
+
   const addGroceryItem = async (i) => {
     if (!supabase || !householdId) return null;
+    const targetList = i.listId || stateRef.current.selectedListId || stateRef.current.groceryLists[0]?.id || null;
+    if (!targetList) throw new Error("צור רשימה לפני הוספת פריט");
     const row = {
       household_id: householdId,
+      list_id: targetList,
       name: i.name,
       qty: i.qty || "",
       section: i.section || "pantry",
-      added_by: i.addedBy === "ai" ? null : (i.addedBy || userId),
+      added_by: resolveAddedBy(i.addedBy),
       checked: !!i.checked,
     };
     const { data, error } = await supabase.from("grocery_items").insert(row).select().single();
@@ -254,6 +288,44 @@ const AppStateProvider = ({ children }) => {
     setGrocery(prev => prev.some(x => x.id === data.id) ? prev : [mapGrocery(data), ...prev]);
     return mapGrocery(data);
   };
+
+  const createGroceryList = async (name) => {
+    if (!supabase || !householdId) return null;
+    const trimmed = (name || "").trim();
+    if (!trimmed) throw new Error("שם רשימה חובה");
+    const { data, error } = await supabase
+      .from("grocery_lists")
+      .insert({ household_id: householdId, name: trimmed, created_by: userId })
+      .select().single();
+    if (error) throw error;
+    const list = mapList(data);
+    setGroceryLists(prev => prev.some(l => l.id === list.id) ? prev : [...prev, list]);
+    setSelectedListId(list.id);
+    return list;
+  };
+
+  const renameGroceryList = async (id, name) => {
+    const trimmed = (name || "").trim();
+    if (!trimmed) throw new Error("שם רשימה חובה");
+    const { data, error } = await supabase
+      .from("grocery_lists").update({ name: trimmed }).eq("id", id).select().single();
+    if (error) throw error;
+    setGroceryLists(prev => prev.map(l => l.id === id ? mapList(data) : l));
+  };
+
+  const deleteGroceryList = async (id) => {
+    const { error } = await supabase.from("grocery_lists").delete().eq("id", id);
+    if (error) throw error;
+    setGroceryLists(prev => prev.filter(l => l.id !== id));
+    setSelectedListId(prev => {
+      if (prev !== id) return prev;
+      const remaining = stateRef.current.groceryLists.filter(l => l.id !== id);
+      return remaining[0]?.id || null;
+    });
+    setGrocery(prev => prev.filter(g => g.listId !== id));
+  };
+
+  const selectList = (id) => setSelectedListId(id);
   const toggleGroceryItem = async (id) => {
     const item = stateRef.current.grocery.find(g => g.id === id);
     if (!item) return;
@@ -419,11 +491,15 @@ const AppStateProvider = ({ children }) => {
   };
 
   const value = {
-    state: { expenses, bills, grocery, people, chat, ...settings, budget: settings.budget },
+    state: {
+      expenses, bills, grocery, groceryLists, selectedListId,
+      people, chat, ...settings, budget: settings.budget,
+    },
     pending, hydrating,
     addExpense, updateExpense, removeExpense,
     addBill, updateBill, removeBill,
     addGroceryItem, toggleGroceryItem, removeGroceryItem,
+    createGroceryList, renameGroceryList, deleteGroceryList, selectList,
     updateMyProfile, removeMember, createInvite,
     setApiKey, setModel, setBudget, saveSettings,
     clearChat, wipeHousehold,
