@@ -88,47 +88,6 @@ const GroceryItem = ({ item, people, onToggle, onDelete }) => {
   );
 };
 
-const CreateListSheet = ({ open, onClose, onCreate }) => {
-  const [name, setName] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
-  const [err, setErr] = React.useState("");
-  React.useEffect(() => { if (open) { setName(""); setErr(""); } }, [open]);
-  const submit = async () => {
-    const v = name.trim();
-    if (!v) return;
-    setBusy(true); setErr("");
-    try {
-      await onCreate(v);
-      onClose && onClose();
-    } catch (e) {
-      setErr(e.message || String(e));
-    } finally { setBusy(false); }
-  };
-  return (
-    <Sheet open={open} onClose={onClose}>
-      <div className="px-22" style={{ paddingBottom: 22 }}>
-        <div className="h2 mt-8">רשימה חדשה</div>
-        <div className="small muted mt-4">לדוגמה: ערב שבת, סופר חודשי, בית מרקחת.</div>
-        <div className="mt-16">
-          <div className="field-label">שם הרשימה</div>
-          <input
-            className="input"
-            autoFocus
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && submit()}
-            placeholder="שם הרשימה…"
-          />
-        </div>
-        {err && <div className="small mt-12" style={{ color: "var(--danger)", fontWeight: 600 }}>{err}</div>}
-        <button className="btn mt-16" onClick={submit} disabled={busy || !name.trim()}>
-          {busy ? "רגע…" : "צור רשימה"}
-        </button>
-      </div>
-    </Sheet>
-  );
-};
-
 const ListActionsSheet = ({ open, list, onClose, onRename, onDelete }) => {
   const [renaming, setRenaming] = React.useState(false);
   const [name, setName] = React.useState("");
@@ -218,7 +177,7 @@ const GroceryScreen = ({ onBack }) => {
 
   const [text, setText] = React.useState("");
   const [hideChecked, setHideChecked] = React.useState(false);
-  const [creatingList, setCreatingList] = React.useState(false);
+  const [newListName, setNewListName] = React.useState(null);
   const [actingOnList, setActingOnList] = React.useState(null);
 
   const add = async () => {
@@ -233,6 +192,19 @@ const GroceryScreen = ({ onBack }) => {
     }
   };
 
+  const startCreateList = () => setNewListName("");
+  const cancelCreateList = () => setNewListName(null);
+  const submitCreateList = async () => {
+    const v = (newListName || "").trim();
+    if (!v) { setNewListName(null); return; }
+    try {
+      await createGroceryList(v);
+      setNewListName(null);
+    } catch (e) {
+      alert(e.message || String(e));
+    }
+  };
+
   const visible = items.filter(i => !hideChecked || !i.checked);
   const grouped = GROCERY_SECTIONS.map(s => ({
     ...s,
@@ -244,7 +216,7 @@ const GroceryScreen = ({ onBack }) => {
   const selectedList = lists.find(l => l.id === selectedListId);
 
   return (
-    <div className="scroll" style={{ paddingBottom: 130 }}>
+    <div className="scroll">
       <TopBar
         title="קניות"
         onBack={onBack}
@@ -263,7 +235,7 @@ const GroceryScreen = ({ onBack }) => {
             <button
               className="btn icon-only soft"
               style={{ background: "var(--cream-soft)" }}
-              onClick={() => setCreatingList(true)}
+              onClick={startCreateList}
               title="רשימה חדשה"
             >
               <Icon name="plus" size={18} />
@@ -274,17 +246,38 @@ const GroceryScreen = ({ onBack }) => {
 
       {lists.length === 0 ? (
         <div className="px-22">
-          <button
-            onClick={() => setCreatingList(true)}
-            className="card dashed"
-            style={{
-              background: "transparent", padding: 32, textAlign: "center", cursor: "pointer",
-              fontFamily: "inherit", width: "100%",
-            }}
-          >
-            <div className="small muted" style={{ marginBottom: 8 }}>אין עדיין רשימות קניות</div>
-            <div style={{ fontSize: 15, fontWeight: 700 }}>+ צור רשימה ראשונה</div>
-          </button>
+          {newListName !== null ? (
+            <div className="card dashed" style={{
+              background: "transparent", padding: 22, textAlign: "center",
+            }}>
+              <div className="small muted" style={{ marginBottom: 10 }}>איך נקרא לרשימה?</div>
+              <input
+                className="input"
+                autoFocus
+                value={newListName}
+                onChange={e => setNewListName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") submitCreateList();
+                  if (e.key === "Escape") cancelCreateList();
+                }}
+                onBlur={() => { if (!(newListName || "").trim()) cancelCreateList(); }}
+                placeholder="שם הרשימה…"
+                style={{ textAlign: "center" }}
+              />
+            </div>
+          ) : (
+            <button
+              onClick={startCreateList}
+              className="card dashed"
+              style={{
+                background: "transparent", padding: 22, textAlign: "center", cursor: "pointer",
+                fontFamily: "inherit", width: "100%",
+              }}
+            >
+              <div className="small muted" style={{ marginBottom: 6 }}>אין עדיין רשימות קניות</div>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>+ צור רשימה ראשונה</div>
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -306,17 +299,39 @@ const GroceryScreen = ({ onBack }) => {
                   {l.name}
                 </button>
               ))}
-              <button
-                className="chip outline"
-                onClick={() => setCreatingList(true)}
-                style={{
-                  fontFamily: "inherit", flexShrink: 0,
-                  borderStyle: "dashed",
-                }}
-                title="רשימה חדשה"
-              >
-                + חדשה
-              </button>
+              {newListName !== null ? (
+                <input
+                  autoFocus
+                  className="chip"
+                  value={newListName}
+                  onChange={e => setNewListName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") submitCreateList();
+                    if (e.key === "Escape") cancelCreateList();
+                  }}
+                  onBlur={() => { if (!(newListName || "").trim()) cancelCreateList(); }}
+                  placeholder="שם רשימה…"
+                  style={{
+                    fontFamily: "inherit", flexShrink: 0,
+                    border: "1.5px dashed var(--line-strong)",
+                    background: "transparent", outline: "none",
+                    minWidth: 110, width: 130,
+                    fontSize: 13, fontWeight: 600,
+                  }}
+                />
+              ) : (
+                <button
+                  className="chip outline"
+                  onClick={startCreateList}
+                  style={{
+                    fontFamily: "inherit", flexShrink: 0,
+                    borderStyle: "dashed",
+                  }}
+                  title="רשימה חדשה"
+                >
+                  + חדשה
+                </button>
+              )}
             </div>
           </div>
 
@@ -393,11 +408,6 @@ const GroceryScreen = ({ onBack }) => {
         </>
       )}
 
-      <CreateListSheet
-        open={creatingList}
-        onClose={() => setCreatingList(false)}
-        onCreate={createGroceryList}
-      />
       <ListActionsSheet
         open={!!actingOnList}
         list={actingOnList}
