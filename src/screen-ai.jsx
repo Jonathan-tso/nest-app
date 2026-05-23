@@ -1,5 +1,4 @@
-/* global React, Icon, TopBar, Sheet, useAppState, CAT */
-// AI: full-screen chat with real Claude API + tool use
+/* global React, Icon, TopBar, Sheet, useAppState, useAuth, CAT */
 
 const SUGGESTIONS = [
   "הוצאתי ₪40 על קפה",
@@ -12,33 +11,22 @@ const ApiKeyPrompt = ({ onSave }) => {
   const [val, setVal] = React.useState("");
   return (
     <div style={{
-      margin: "8px 22px 16px",
-      padding: 16,
-      borderRadius: 18,
-      background: "var(--cream-soft)",
-      border: "1px solid var(--line)",
+      margin: "8px 22px 16px", padding: 16, borderRadius: 18,
+      background: "var(--cream-soft)", border: "1px solid var(--line)",
     }}>
       <div className="hstack gap-8" style={{ marginBottom: 8 }}>
         <span className="ai-dot" />
         <span className="ai-text" style={{ fontSize: 12 }}>הגדרה ראשונית</span>
       </div>
-      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
-        חבר את המפתח של Anthropic
-      </div>
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>חבר את המפתח של Anthropic</div>
       <div className="small muted" style={{ marginBottom: 12 }}>
-        המפתח נשמר רק במכשיר שלך. נמצא ב-console.anthropic.com.
+        המפתח שלך נשמר מוצפן בחשבונך. הוא נמצא ב-console.anthropic.com.
       </div>
       <input
-        type="password"
-        className="input"
-        placeholder="sk-ant-..."
-        value={val}
-        onChange={e => setVal(e.target.value)}
-        autoComplete="off"
+        type="password" className="input" placeholder="sk-ant-..."
+        value={val} onChange={e => setVal(e.target.value)} autoComplete="off"
       />
-      <button
-        className="btn"
-        style={{ marginTop: 10 }}
+      <button className="btn" style={{ marginTop: 10 }}
         onClick={() => val.trim() && onSave(val.trim())}
       >שמור והמשך</button>
     </div>
@@ -46,7 +34,8 @@ const ApiKeyPrompt = ({ onSave }) => {
 };
 
 const SettingsSheet = ({ open, onClose }) => {
-  const { state, setApiKey, setModel, setBudget, clearChat, resetAll } = useAppState();
+  const { state, setApiKey, setModel, setBudget, clearChat, wipeHousehold } = useAppState();
+  const { signOut, profile } = useAuth();
   const [key, setKey] = React.useState("");
   React.useEffect(() => { if (open) setKey(state.apiKey || ""); }, [open, state.apiKey]);
 
@@ -55,28 +44,25 @@ const SettingsSheet = ({ open, onClose }) => {
       <div className="px-22" style={{ paddingBottom: 22 }}>
         <div className="h2 mt-8">הגדרות</div>
 
+        {profile && (
+          <div className="small muted mt-4">
+            מחובר כ-{profile.display_name} · {profile.id?.slice(0, 8)}
+          </div>
+        )}
+
         <div className="mt-16">
           <div className="field-label">מפתח Anthropic API</div>
           <input
-            type="password"
-            className="input"
-            placeholder="sk-ant-..."
-            value={key}
-            onChange={e => setKey(e.target.value)}
-            autoComplete="off"
+            type="password" className="input"
+            placeholder="sk-ant-..." value={key}
+            onChange={e => setKey(e.target.value)} autoComplete="off"
           />
-          <div className="small muted" style={{ marginTop: 6 }}>
-            נשמר ב-localStorage. נמצא ב-console.anthropic.com.
-          </div>
         </div>
 
         <div className="mt-16">
           <div className="field-label">מודל</div>
-          <select
-            className="input"
-            value={state.model}
-            onChange={e => setModel(e.target.value)}
-          >
+          <select className="input" value={state.model || "claude-haiku-4-5"}
+            onChange={e => setModel(e.target.value)}>
             <option value="claude-haiku-4-5">Haiku 4.5 (מהיר)</option>
             <option value="claude-sonnet-4-5">Sonnet 4.5</option>
             <option value="claude-opus-4-5">Opus 4.5</option>
@@ -85,13 +71,9 @@ const SettingsSheet = ({ open, onClose }) => {
 
         <div className="mt-16">
           <div className="field-label">תקציב חודשי</div>
-          <input
-            type="number"
-            inputMode="numeric"
-            className="input num"
-            value={state.budget}
-            onChange={e => setBudget(parseInt(e.target.value) || 0)}
-          />
+          <input type="number" inputMode="numeric" className="input num"
+            value={state.budget || 0}
+            onChange={e => setBudget(parseInt(e.target.value) || 0)} />
         </div>
 
         <button className="btn mt-16" onClick={() => { setApiKey(key); onClose(); }}>שמור</button>
@@ -103,17 +85,23 @@ const SettingsSheet = ({ open, onClose }) => {
           <button
             className="btn ghost"
             style={{ color: "var(--danger)", borderColor: "var(--line)" }}
-            onClick={() => {
-              if (confirm("למחוק את כל הנתונים?")) { resetAll(); onClose(); }
+            onClick={async () => {
+              if (confirm("למחוק את כל הנתונים של הבית (הוצאות, חשבונות, קניות)?")) {
+                await wipeHousehold(); onClose();
+              }
             }}
-          >אתחל אפליקציה</button>
+          >מחק נתוני בית</button>
+          <button
+            className="btn ghost"
+            style={{ borderColor: "var(--line)" }}
+            onClick={async () => { await signOut(); onClose(); }}
+          >התנתק</button>
         </div>
       </div>
     </Sheet>
   );
 };
 
-// Extract user-visible text from an assistant content array
 const extractText = (content) => {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
@@ -154,10 +142,7 @@ const AIChat = ({ onBack }) => {
   const visibleMessages = state.chat
     .map((m, idx) => ({ ...m, idx }))
     .filter(m => {
-      // hide tool_result-only user messages
-      if (m.role === "user" && Array.isArray(m.content) && m.content.every(b => b.type === "tool_result")) {
-        return false;
-      }
+      if (m.role === "user" && Array.isArray(m.content) && m.content.every(b => b.type === "tool_result")) return false;
       return true;
     });
 
@@ -168,11 +153,8 @@ const AIChat = ({ onBack }) => {
           title=""
           onBack={onBack}
           trailing={
-            <button
-              className="btn icon-only"
-              style={{ background: "transparent", border: "none" }}
-              onClick={() => setShowSettings(true)}
-            >
+            <button className="btn icon-only" style={{ background: "transparent", border: "none" }}
+              onClick={() => setShowSettings(true)}>
               <Icon name="settings" size={20} />
             </button>
           }
@@ -205,10 +187,8 @@ const AIChat = ({ onBack }) => {
               </div>
             );
           }
-          // assistant
           const txt = extractText(m.content);
           const tools = extractToolUses(m.content);
-
           return (
             <div key={m.idx} className="vstack" style={{ alignItems: "flex-start", gap: 6 }}>
               {txt && <div className="bubble ai">{txt}</div>}
@@ -238,12 +218,9 @@ const AIChat = ({ onBack }) => {
         {state.apiKey && visibleMessages.filter(m => m.role === "user").length === 0 && (
           <div className="hstack gap-6" style={{ marginBottom: 10, flexWrap: "wrap" }}>
             {SUGGESTIONS.map(s => (
-              <button
-                key={s}
-                className="chip outline"
-                onClick={() => send(s)}
-                style={{ fontFamily: "inherit" }}
-              >{s}</button>
+              <button key={s} className="chip outline" onClick={() => send(s)} style={{ fontFamily: "inherit" }}>
+                {s}
+              </button>
             ))}
           </div>
         )}
@@ -281,19 +258,11 @@ const AISheet = ({ open, onClose }) => {
   return (
     <Sheet open={open} onClose={onClose}>
       <div className="px-22" style={{ paddingBottom: 22 }}>
-        <div className="hstack gap-8" style={{ marginTop: 4 }}>
-          <span className="ai-dot" />
-          <span className="ai-text" style={{ fontSize: 13 }}>Nest AI</span>
-        </div>
         <div className="h2 mt-8">ספר לי על מה הוצאת</div>
         <div className="mt-16">
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
-            className="input"
-            style={{ minHeight: 100 }}
-            placeholder="לדוגמה: ₪127 בשופרסל היום"
-          />
+          <textarea value={text} onChange={e => setText(e.target.value)}
+            className="input" style={{ minHeight: 100 }}
+            placeholder="לדוגמה: ₪127 בשופרסל היום" />
         </div>
         <button className="btn" style={{ marginTop: 12 }} onClick={submit}>
           <Icon name="send" size={16} /> שלח
@@ -307,9 +276,9 @@ const AIActionPad = ({ open, onClose }) => {
   const { sendChatMessage } = useAppState();
   const quick = (text) => { sendChatMessage(text); onClose && onClose(); };
   const actions = [
-    { id: "expense",  label: "הוסף הוצאה", icon: "plus",     color: "mint",   q: "אני רוצה להוסיף הוצאה" },
-    { id: "bill",     label: "חשבון חדש",  icon: "receipt",  color: "sky",    q: "אני רוצה להוסיף חשבון" },
-    { id: "grocery",  label: "פריט קניות", icon: "cart",     color: "butter", q: "תוסיף פריט לקניות" },
+    { id: "expense",  label: "הוסף הוצאה", icon: "plus",     color: "mint",     q: "אני רוצה להוסיף הוצאה" },
+    { id: "bill",     label: "חשבון חדש",  icon: "receipt",  color: "sky",      q: "אני רוצה להוסיף חשבון" },
+    { id: "grocery",  label: "פריט קניות", icon: "cart",     color: "butter",   q: "תוסיף פריט לקניות" },
     { id: "summary",  label: "סיכום החודש", icon: "sparkles", color: "lavender", q: "כמה הוצאתי החודש?" },
   ];
   return (
@@ -318,15 +287,12 @@ const AIActionPad = ({ open, onClose }) => {
         <div className="h2 mt-8">פעולות מהירות</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
           {actions.map(a => (
-            <button
-              key={a.id}
-              onClick={() => quick(a.q)}
+            <button key={a.id} onClick={() => quick(a.q)}
               style={{
                 background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 18,
                 padding: 16, display: "flex", alignItems: "center", gap: 12,
                 cursor: "pointer", fontFamily: "inherit",
-              }}
-            >
+              }}>
               <div className={`bg-${a.color}`} style={{
                 width: 40, height: 40, borderRadius: 12, display: "grid", placeItems: "center",
               }}>

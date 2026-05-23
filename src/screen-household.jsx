@@ -1,49 +1,110 @@
-/* global React, Icon, Avatar, TopBar, Sheet, useAppState, AVATAR_COLORS */
+/* global React, Icon, Avatar, TopBar, Sheet, useAppState, useAuth, AVATAR_COLORS */
 
 const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
-const PersonSheet = ({ open, person, takenColors, onClose, onSave, onDelete }) => {
-  const isEdit = !!person;
-  const isOwner = person?.owner;
-  const [name, setName] = React.useState("");
-  const [color, setColor] = React.useState("mint");
+const InviteSheet = ({ open, onClose, onCreate }) => {
+  const [code, setCode] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
 
   React.useEffect(() => {
-    if (open) {
-      setName(person?.name || "");
-      // pick the first unused color for new members
-      const def = person?.color
-        || AVATAR_COLORS.find(c => !takenColors?.includes(c))
-        || "mint";
-      setColor(def);
-    }
-  }, [open, person]);
+    if (open) { setCode(""); setCopied(false); }
+  }, [open]);
 
-  const canSave = name.trim().length > 0;
-
-  const save = () => {
-    if (!canSave) return;
-    onSave({
-      name: name.trim(),
-      color,
-      short: name.trim().split(/\s+/)[0].slice(0, 2),
-    });
-    onClose && onClose();
+  const create = async () => {
+    setBusy(true);
+    try {
+      const inv = await onCreate();
+      if (inv && inv.code) setCode(inv.code);
+    } catch (e) {
+      alert(e.message || String(e));
+    } finally { setBusy(false); }
   };
 
-  const del = () => {
-    if (!person || isOwner) return;
-    if (confirm(`למחוק את ${person.name}? הוצאות שכבר נרשמו לא יימחקו.`)) {
-      onDelete && onDelete(person.id);
-      onClose && onClose();
-    }
+  const link = code ? `${window.location.origin}${window.location.pathname}?invite=${code}` : "";
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {}
   };
 
   return (
     <Sheet open={open} onClose={onClose}>
       <div className="px-22" style={{ paddingBottom: 22 }}>
+        <div className="h2 mt-8">הזמנת חבר לבית</div>
+        <div className="small muted mt-4">צור קישור חד-פעמי ושלח אותו למי שתרצה לצרף.</div>
+
+        {!code ? (
+          <button className="btn mt-16" onClick={create} disabled={busy}>
+            {busy ? "רגע…" : "צור קישור הזמנה"}
+          </button>
+        ) : (
+          <>
+            <div className="mt-16">
+              <div className="field-label">קוד</div>
+              <input className="input mono" value={code} readOnly />
+            </div>
+            <div className="mt-16">
+              <div className="field-label">קישור</div>
+              <input className="input" value={link} readOnly />
+            </div>
+            <button className="btn mt-16" onClick={copy}>
+              <Icon name="paperclip" size={16} /> {copied ? "הועתק" : "העתק קישור"}
+            </button>
+            <div className="small muted mt-12" style={{ textAlign: "center" }}>
+              בקש מהשותף לפתוח את הקישור ולהירשם.
+            </div>
+          </>
+        )}
+      </div>
+    </Sheet>
+  );
+};
+
+const PersonSheet = ({ open, person, onClose, onSaveSelf, onRemove }) => {
+  const isSelf = person?.isYou;
+  const isOwner = person?.owner;
+  const [name, setName] = React.useState("");
+  const [color, setColor] = React.useState("mint");
+
+  React.useEffect(() => {
+    if (open && person) {
+      setName(person.name || "");
+      setColor(person.color || "mint");
+    }
+  }, [open, person]);
+
+  const save = async () => {
+    if (!name.trim()) return;
+    try {
+      await onSaveSelf({ name: name.trim(), color });
+      onClose && onClose();
+    } catch (e) {
+      alert(e.message || String(e));
+    }
+  };
+
+  const del = async () => {
+    if (!person || isSelf) return;
+    if (!confirm(`להסיר את ${person.name} מהבית?`)) return;
+    try {
+      await onRemove(person.id);
+      onClose && onClose();
+    } catch (e) {
+      alert(e.message || String(e));
+    }
+  };
+
+  if (!person) return <Sheet open={false} onClose={onClose}><div /></Sheet>;
+
+  return (
+    <Sheet open={open} onClose={onClose}>
+      <div className="px-22" style={{ paddingBottom: 22 }}>
         <div className="h2 mt-8">
-          {isEdit ? (isOwner ? "פרופיל שלך" : "עריכת חבר בית") : "הוסף חבר בית"}
+          {isSelf ? "הפרופיל שלך" : person.name}
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
@@ -52,52 +113,57 @@ const PersonSheet = ({ open, person, takenColors, onClose, onSave, onDelete }) =
           </div>
         </div>
 
-        <div className="mt-16">
-          <div className="field-label">שם</div>
-          <input
-            className="input"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="לדוגמה: יואב"
-            autoFocus
-          />
-        </div>
+        {isSelf ? (
+          <>
+            <div className="mt-16">
+              <div className="field-label">שם</div>
+              <input className="input" value={name} onChange={e => setName(e.target.value)} />
+            </div>
 
-        <div className="mt-16">
-          <div className="field-label">צבע אווטאר</div>
-          <div className="hstack gap-8" style={{ flexWrap: "wrap" }}>
-            {AVATAR_COLORS.map(c => (
+            <div className="mt-16">
+              <div className="field-label">צבע אווטאר</div>
+              <div className="hstack gap-8" style={{ flexWrap: "wrap" }}>
+                {AVATAR_COLORS.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setColor(c)}
+                    className={`bg-${c}`}
+                    aria-label={c}
+                    style={{
+                      width: 40, height: 40, borderRadius: 12,
+                      border: color === c ? "3px solid var(--ink)" : "2px solid transparent",
+                      cursor: "pointer",
+                      outline: "1px solid var(--line)",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <button
+              className="btn mt-20"
+              onClick={save}
+              disabled={!name.trim()}
+              style={{ opacity: name.trim() ? 1 : 0.4 }}
+            >שמור</button>
+          </>
+        ) : (
+          <>
+            <div className="card mt-16" style={{ padding: 16, background: "var(--cream-soft)" }}>
+              <div className="small muted">
+                {isOwner ? "בעלים של הבית. אי אפשר להסיר." : "ניתן להסיר מהבית."}
+              </div>
+            </div>
+            {!isOwner && (
               <button
-                key={c}
-                onClick={() => setColor(c)}
-                className={`bg-${c}`}
-                aria-label={c}
-                style={{
-                  width: 40, height: 40, borderRadius: 12,
-                  border: color === c ? "3px solid var(--ink)" : "2px solid transparent",
-                  cursor: "pointer",
-                  outline: "1px solid var(--line)",
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        <button
-          className="btn mt-20"
-          onClick={save}
-          disabled={!canSave}
-          style={{ opacity: canSave ? 1 : 0.4 }}
-        >שמור</button>
-
-        {isEdit && !isOwner && (
-          <button
-            className="btn ghost mt-12"
-            onClick={del}
-            style={{ color: "var(--danger)", borderColor: "var(--line)" }}
-          >
-            <Icon name="trash" size={16} /> מחק חבר
-          </button>
+                className="btn ghost mt-12"
+                onClick={del}
+                style={{ color: "var(--danger)", borderColor: "var(--line)" }}
+              >
+                <Icon name="trash" size={16} /> הסר מהבית
+              </button>
+            )}
+          </>
         )}
       </div>
     </Sheet>
@@ -105,7 +171,8 @@ const PersonSheet = ({ open, person, takenColors, onClose, onSave, onDelete }) =
 };
 
 const HouseholdScreen = ({ onBack }) => {
-  const { state, addPerson, updatePerson, removePerson } = useAppState();
+  const { state, updateMyProfile, removeMember, createInvite } = useAppState();
+  const { household } = useAuth();
   const expenses = state.expenses;
   const people = state.people;
 
@@ -126,18 +193,16 @@ const HouseholdScreen = ({ onBack }) => {
     }
   });
 
-  const you = people.find(p => p.owner) || people[0];
+  const you = people.find(p => p.isYou) || people[0];
   const youBalance = you ? totals[you.id].paid - totals[you.id].share : 0;
   const owedAmount = Math.abs(youBalance);
   const youOwe = youBalance < 0;
   const hasBalance = owedAmount > 0.5;
-  const others = people.filter(p => !p.owner);
+  const others = people.filter(p => !p.isYou);
 
-  const [editing, setEditing] = React.useState(null); // person or null
-  const [adding, setAdding] = React.useState(false);
-  const [showSettle, setShowSettle] = React.useState(false);
+  const [editing, setEditing] = React.useState(null);
+  const [inviteOpen, setInviteOpen] = React.useState(false);
 
-  // for settlement: pick the person with biggest opposite-sign balance
   let counterpart = null;
   if (hasBalance && others.length > 0) {
     const sorted = others
@@ -149,14 +214,14 @@ const HouseholdScreen = ({ onBack }) => {
   return (
     <div className="scroll">
       <TopBar
-        title="משק בית"
+        title={household?.name || "משק בית"}
         onBack={onBack}
         trailing={
           <button
             className="btn icon-only soft"
             style={{ background: "var(--cream-soft)" }}
-            onClick={() => setAdding(true)}
-            title="הוסף חבר"
+            onClick={() => setInviteOpen(true)}
+            title="הזמן חבר"
           >
             <Icon name="plus" size={18} />
           </button>
@@ -170,20 +235,15 @@ const HouseholdScreen = ({ onBack }) => {
             <div style={{ fontSize: 16, fontWeight: 600, marginTop: 6 }}>
               {youOwe
                 ? <>אתה חייב ל<span style={{ fontWeight: 800 }}>{counterpart.name}</span></>
-                : <>{counterpart.name} חייב<span style={{ fontWeight: 800 }}>{counterpart.name?.endsWith("ה") ? "ת" : ""} לך</span></>}
+                : <><span style={{ fontWeight: 800 }}>{counterpart.name}</span> חייב לך</>}
             </div>
             <div className="h1 num" style={{ marginTop: 8 }}>{shek(owedAmount, 0)}</div>
-            <button
-              className="btn"
-              onClick={() => setShowSettle(true)}
-              style={{ marginTop: 14, background: "#fff", color: "var(--ink)", width: "auto", padding: "0 22px" }}
-            >סגירת חשבון</button>
           </div>
         ) : (
           <div className="card" style={{ padding: 20, background: "var(--cream-soft)" }}>
             <div className="tiny">מאזן</div>
             <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6 }}>
-              {people.length < 2 ? "הוסף חברי בית כדי לעקוב אחר חלוקה" : "אין חוב פתוח"}
+              {people.length < 2 ? "הזמן שותפים כדי לעקוב אחר חלוקה" : "אין חוב פתוח"}
             </div>
           </div>
         )}
@@ -208,7 +268,8 @@ const HouseholdScreen = ({ onBack }) => {
                   <div className="meta" style={{ marginInlineStart: 8 }}>
                     <div className="t">
                       {p.name}
-                      {p.owner && <span className="tiny" style={{ marginInlineStart: 8, color: "var(--text-3)" }}>· את/ה</span>}
+                      {p.isYou && <span className="tiny" style={{ marginInlineStart: 8, color: "var(--text-3)" }}>· את/ה</span>}
+                      {p.owner && !p.isYou && <span className="tiny" style={{ marginInlineStart: 8, color: "var(--text-3)" }}>· בעלים</span>}
                     </div>
                     {expenses.length > 0 ? (
                       <div className="s">שילם {shek(t.paid, 0)} · חלק {shek(t.share, 0)}</div>
@@ -232,14 +293,15 @@ const HouseholdScreen = ({ onBack }) => {
             })}
             <div
               className="row"
-              onClick={() => setAdding(true)}
+              onClick={() => setInviteOpen(true)}
               style={{ borderTop: "1px solid var(--line)", cursor: "pointer" }}
             >
               <div className="lead" style={{ background: "var(--cream-soft)", border: "1.5px dashed var(--line-strong)" }}>
                 <Icon name="plus" size={20} color="#0E0E0E" />
               </div>
               <div className="meta">
-                <div className="t" style={{ color: "var(--text-2)" }}>הוסף חבר בית</div>
+                <div className="t" style={{ color: "var(--text-2)" }}>הזמן חבר לבית</div>
+                <div className="s">צור קישור לשליחה</div>
               </div>
               <div className="trail"><Icon name="chevron" size={18} color="var(--text-3)" /></div>
             </div>
@@ -247,44 +309,18 @@ const HouseholdScreen = ({ onBack }) => {
         </div>
       </div>
 
-      {/* Person add/edit sheet */}
       <PersonSheet
-        open={adding || !!editing}
+        open={!!editing}
         person={editing}
-        takenColors={people.map(p => p.color)}
-        onClose={() => { setEditing(null); setAdding(false); }}
-        onSave={(patch) => {
-          if (editing) updatePerson(editing.id, patch);
-          else addPerson(patch);
-        }}
-        onDelete={removePerson}
+        onClose={() => setEditing(null)}
+        onSaveSelf={updateMyProfile}
+        onRemove={removeMember}
       />
-
-      {/* Settle sheet */}
-      <Sheet open={showSettle} onClose={() => setShowSettle(false)}>
-        <div className="px-22" style={{ paddingBottom: 24 }}>
-          <div className="h2 mt-8">סגירת חשבון</div>
-          {counterpart && (
-            <div className="card" style={{ marginTop: 16, padding: 18, background: "var(--cream-soft)" }}>
-              <div className="hstack between">
-                <div>
-                  <div className="tiny">סכום</div>
-                  <div className="h1 num" style={{ marginTop: 4 }}>{shek(owedAmount, 0)}</div>
-                </div>
-                <div className="hstack gap-8">
-                  <Avatar name={you.name} color={you.color} size="lg" />
-                  <Icon name="arrow" size={20} />
-                  <Avatar name={counterpart.name} color={counterpart.color} size="lg" />
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="vstack gap-10 mt-16">
-            <button className="btn" onClick={() => setShowSettle(false)}>שלם עכשיו</button>
-            <button className="btn ghost" onClick={() => setShowSettle(false)}>סמן כשולם</button>
-          </div>
-        </div>
-      </Sheet>
+      <InviteSheet
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        onCreate={createInvite}
+      />
     </div>
   );
 };

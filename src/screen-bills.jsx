@@ -44,10 +44,11 @@ const BillRow = ({ bill, people, onPay, onPick }) => {
 };
 
 const BillDetailSheet = ({ bill, people, onClose, onUpdate, onDelete }) => {
+  const me = people.find(p => p.isYou);
   const [label, setLabel] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [category, setCategory] = React.useState("rent");
-  const [assignee, setAssignee] = React.useState("you");
+  const [assignee, setAssignee] = React.useState("");
   const [paid, setPaid] = React.useState(false);
   const [dueDate, setDueDate] = React.useState("");
 
@@ -56,11 +57,11 @@ const BillDetailSheet = ({ bill, people, onClose, onUpdate, onDelete }) => {
       setLabel(bill.label || "");
       setAmount(String(bill.amount || ""));
       setCategory(bill.category || "rent");
-      setAssignee(bill.assignee || "you");
+      setAssignee(bill.assignee || me?.id || "");
       setPaid(!!bill.paid);
       setDueDate(bill.dueDate || "");
     }
-  }, [bill]);
+  }, [bill, me?.id]);
 
   const save = () => {
     const num = parseFloat(amount) || 0;
@@ -190,16 +191,21 @@ const BillDetailSheet = ({ bill, people, onClose, onUpdate, onDelete }) => {
 };
 
 const AddBillSheet = ({ open, people, onClose, onAdd }) => {
+  const me = people.find(p => p.isYou);
   const [label, setLabel] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [category, setCategory] = React.useState("rent");
-  const [assignee, setAssignee] = React.useState("you");
+  const [assignee, setAssignee] = React.useState(me?.id || "");
   const [dueDate, setDueDate] = React.useState("");
   const [recurring, setRecurring] = React.useState("");
 
   React.useEffect(() => {
-    if (open) { setLabel(""); setAmount(""); setCategory("rent"); setAssignee("you"); setDueDate(""); setRecurring(""); }
-  }, [open]);
+    if (open) {
+      setLabel(""); setAmount(""); setCategory("rent");
+      setAssignee(me?.id || "");
+      setDueDate(""); setRecurring("");
+    }
+  }, [open, me?.id]);
 
   const canSave = label.trim() && parseFloat(amount) > 0;
   const save = () => {

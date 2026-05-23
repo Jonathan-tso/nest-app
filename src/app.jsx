@@ -1,4 +1,4 @@
-/* global React, ReactDOM, Icon, HomeScreen, BillsScreen, GroceryScreen, AIChat, AISheet, AIActionPad, AddExpenseSheet, CategoriesScreen, HistoryScreen, HouseholdScreen, NotificationsScreen, AppStateProvider, useAppState */
+/* global React, ReactDOM, Icon, HomeScreen, BillsScreen, GroceryScreen, AIChat, AISheet, AIActionPad, AddExpenseSheet, CategoriesScreen, HistoryScreen, HouseholdScreen, NotificationsScreen, AppStateProvider, useAppState, AuthProvider, useAuth, AuthScreen, SetupRequiredScreen, LoadingScreen */
 
 const { useState } = React;
 
@@ -25,16 +25,12 @@ const BottomNav = ({ active, onChange, onFab }) => (
 );
 
 const Shell = () => {
-  const { sendChatMessage } = useAppState();
-
+  const { sendChatMessage, hydrating } = useAppState();
   const [route, setRoute] = useState("home");
   const [addOpen, setAddOpen] = useState(false);
   const [stack, setStack] = useState(["home"]);
 
-  const navigate = (r) => {
-    setStack(prev => [...prev, r]);
-    setRoute(r);
-  };
+  const navigate = (r) => { setStack(prev => [...prev, r]); setRoute(r); };
   const back = () => {
     setStack(prev => {
       const next = prev.slice(0, -1);
@@ -49,17 +45,10 @@ const Shell = () => {
     else navigate(r);
   };
 
-  const onFab = () => {
-    if (route !== "ai") navigate("ai");
-  };
+  const onFab = () => { if (route !== "ai") navigate("ai"); };
 
-  // Submit from home AIInput: send to chat + navigate
-  const submitFromHome = (text) => {
-    navigate("ai");
-    sendChatMessage(text);
-  };
+  const submitFromHome = (text) => { navigate("ai"); sendChatMessage(text); };
 
-  // edge-swipe back gesture
   React.useEffect(() => {
     let startX = 0, startY = 0, tracking = false;
     const onStart = (e) => {
@@ -74,8 +63,7 @@ const Shell = () => {
       tracking = false;
       const x = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
       const y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-      const dx = Math.abs(x - startX);
-      const dy = Math.abs(y - startY);
+      const dx = Math.abs(x - startX); const dy = Math.abs(y - startY);
       if (dx > 60 && dy < 60 && stack.length > 1) back();
     };
     window.addEventListener("touchstart", onStart, { passive: true });
@@ -86,11 +74,11 @@ const Shell = () => {
     };
   }, [stack]);
 
+  if (hydrating) return <LoadingScreen />;
+
   return (
-    <div className="stage">
-      <div className="phone">
-        <div className="phone-inner">
-          {route === "home" &&
+    <>
+      {route === "home" &&
             <HomeScreen
               nav={navigate}
               openBills={() => navigate("bills")}
@@ -108,19 +96,51 @@ const Shell = () => {
           {route === "household" && <HouseholdScreen onBack={back} />}
           {route === "notifications" && <NotificationsScreen onBack={back} />}
 
-          <AddExpenseSheet open={addOpen} onClose={() => setAddOpen(false)} />
+      <AddExpenseSheet open={addOpen} onClose={() => setAddOpen(false)} />
 
-          {route !== "ai" && <BottomNav active={route} onChange={go} onFab={onFab} />}
-        </div>
-      </div>
-    </div>
+      {route !== "ai" && <BottomNav active={route} onChange={go} onFab={onFab} />}
+    </>
   );
 };
 
-const App = () => (
-  <AppStateProvider>
-    <Shell />
-  </AppStateProvider>
+const PhoneFrame = ({ children }) => (
+  <div className="stage">
+    <div className="phone">
+      <div className="phone-inner">{children}</div>
+    </div>
+  </div>
 );
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+const Root = () => {
+  if (!window.supabaseIsConfigured) {
+    return <PhoneFrame><SetupRequiredScreen /></PhoneFrame>;
+  }
+  return (
+    <AuthProvider>
+      <Gate />
+    </AuthProvider>
+  );
+};
+
+const Gate = () => {
+  const { session, profile, household, loading } = useAuth();
+  if (loading) return <PhoneFrame><LoadingScreen /></PhoneFrame>;
+  if (!session) return <PhoneFrame><AuthScreen /></PhoneFrame>;
+  if (!profile || !household) return <PhoneFrame><LoadingScreen /></PhoneFrame>;
+
+  try {
+    const u = new URL(window.location.href);
+    if (u.searchParams.has("invite")) {
+      u.searchParams.delete("invite");
+      window.history.replaceState({}, "", u.toString());
+    }
+  } catch (e) {}
+
+  return (
+    <AppStateProvider>
+      <PhoneFrame><Shell /></PhoneFrame>
+    </AppStateProvider>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root />);

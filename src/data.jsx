@@ -17,10 +17,6 @@ const CATEGORIES = [
 
 const CAT = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
-const DEFAULT_PEOPLE = [
-  { id: "you", name: "דניאל", color: "sky", short: "אתה", owner: true },
-];
-
 const AVATAR_COLORS = ["sky", "mint", "pink", "butter", "coral", "lavender", "cream"];
 
 const GROCERY_SECTIONS = [
@@ -31,4 +27,4 @@ const GROCERY_SECTIONS = [
   { id: "household", label: "לבית",         icon: "leaf",    color: "pink" },
 ];
 
-Object.assign(window, { CATEGORIES, CAT, DEFAULT_PEOPLE, AVATAR_COLORS, GROCERY_SECTIONS });
+Object.assign(window, { CATEGORIES, CAT, AVATAR_COLORS, GROCERY_SECTIONS });

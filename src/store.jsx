@@ -1,150 +1,402 @@
-/* global React */
-// App state — expenses, bills, grocery, chat, settings. Persisted in localStorage.
-
-const STORAGE_KEY = "nest:state:v2";
-
-const initialState = () => ({
-  expenses: [],
-  bills: [],
-  grocery: [],
-  chat: [],
-  people: window.DEFAULT_PEOPLE,
-  budget: 8200,
-  apiKey: "",
-  model: "claude-haiku-4-5",
-});
+/* global React, useAuth */
+// App data store — backed by Supabase Postgres + realtime.
 
 const AppStateContext = React.createContext(null);
 const useAppState = () => React.useContext(AppStateContext);
 
+const hebrewDate = () => {
+  try { return new Date().toLocaleDateString("he-IL", { day: "numeric", month: "long" }); }
+  catch (e) { return new Date().toLocaleDateString(); }
+};
+
+// DB row → in-app shape used by existing screens
+const mapExpense = (r) => ({
+  id: r.id,
+  label: r.label,
+  amount: Number(r.amount) || 0,
+  category: r.category,
+  paidBy: r.paid_by,
+  split: r.split,
+  date: r.date || "",
+  recurring: !!r.recurring,
+  createdBy: r.created_by,
+});
+const mapBill = (r) => ({
+  id: r.id,
+  label: r.label,
+  amount: Number(r.amount) || 0,
+  category: r.category,
+  dueDate: r.due_date || "",
+  recurring: r.recurring || null,
+  assignee: r.assignee,
+  status: r.status || "upcoming",
+  paid: !!r.paid,
+});
+const mapGrocery = (r) => ({
+  id: r.id,
+  name: r.name,
+  qty: r.qty || "",
+  section: r.section || "pantry",
+  addedBy: r.added_by,
+  checked: !!r.checked,
+});
+const mapChat = (r) => ({ role: r.role, content: r.content });
+
 const AppStateProvider = ({ children }) => {
-  const [state, setState] = React.useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return { ...initialState(), ...JSON.parse(raw) };
-    } catch (e) {}
-    return initialState();
-  });
+  const supabase = window.supabaseClient;
+  const { session, profile, household, refreshProfile } = useAuth();
+  const userId = profile?.id;
+  const householdId = household?.id;
+
+  const [expenses, setExpenses] = React.useState([]);
+  const [bills, setBills] = React.useState([]);
+  const [grocery, setGrocery] = React.useState([]);
+  const [people, setPeople] = React.useState([]);
+  const [chat, setChat] = React.useState([]);
+  const [settings, setSettings] = React.useState({ apiKey: "", model: "claude-haiku-4-5", budget: 8200 });
   const [pending, setPending] = React.useState(false);
+  const [hydrating, setHydrating] = React.useState(true);
+
+  // Track latest snapshot for tool execution / closures
+  const stateRef = React.useRef({});
+  React.useEffect(() => {
+    stateRef.current = { expenses, bills, grocery, people, chat, settings };
+  }, [expenses, bills, grocery, people, chat, settings]);
+
+  // ===== Hydrate =====
+  const refetchMembers = React.useCallback(async () => {
+    if (!supabase || !householdId || !userId) return;
+    const { data } = await supabase
+      .from("household_members")
+      .select("role, profile_id, profiles(id, display_name, color)")
+      .eq("household_id", householdId);
+    const list = (data || [])
+      .map(r => ({
+        id: r.profile_id,
+        name: r.profiles?.display_name || "",
+        color: r.profiles?.color || "mint",
+        short: (r.profiles?.display_name || "").split(/\s+/)[0].slice(0, 2),
+        owner: r.role === "owner",
+        isYou: r.profile_id === userId,
+      }))
+      .sort((a, b) => (a.isYou ? -1 : b.isYou ? 1 : 0));
+    setPeople(list);
+  }, [supabase, householdId, userId]);
 
   React.useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
-  }, [state]);
+    if (!supabase || !userId || !householdId) {
+      setHydrating(false);
+      return;
+    }
+    let alive = true;
+    setHydrating(true);
 
-  // mutable ref so tool loop can read fresh state across async iterations
-  const stateRef = React.useRef(state);
-  stateRef.current = state;
+    (async () => {
+      const [expR, bilR, groR, chmR, stR] = await Promise.all([
+        supabase.from("expenses").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
+        supabase.from("bills").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
+        supabase.from("grocery_items").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
+        supabase.from("chat_messages").select("*").eq("profile_id", userId).order("created_at", { ascending: true }),
+        supabase.from("user_settings").select("*").eq("profile_id", userId).maybeSingle(),
+      ]);
+      if (!alive) return;
+      setExpenses((expR.data || []).map(mapExpense));
+      setBills((bilR.data || []).map(mapBill));
+      setGrocery((groR.data || []).map(mapGrocery));
+      setChat((chmR.data || []).map(mapChat));
+      if (stR.data) {
+        setSettings({
+          apiKey: stR.data.api_key || "",
+          model: stR.data.model || "claude-haiku-4-5",
+          budget: stR.data.budget || 8200,
+        });
+      }
+      await refetchMembers();
+      setHydrating(false);
+    })();
 
-  // ===== mutators =====
-  const addExpense = (e) => {
-    const exp = {
-      id: `e-${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
-      paidBy: "you", split: 50,
-      date: hebrewDate(),
-      ...e,
+    return () => { alive = false; };
+  }, [supabase, userId, householdId, refetchMembers]);
+
+  // ===== Realtime =====
+  React.useEffect(() => {
+    if (!supabase || !householdId) return;
+    const channel = supabase.channel(`hh:${householdId}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "expenses", filter: `household_id=eq.${householdId}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setExpenses(prev => prev.some(e => e.id === payload.new.id) ? prev : [mapExpense(payload.new), ...prev]);
+          } else if (payload.eventType === "UPDATE") {
+            setExpenses(prev => prev.map(e => e.id === payload.new.id ? mapExpense(payload.new) : e));
+          } else if (payload.eventType === "DELETE") {
+            setExpenses(prev => prev.filter(e => e.id !== payload.old.id));
+          }
+        })
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "bills", filter: `household_id=eq.${householdId}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setBills(prev => prev.some(b => b.id === payload.new.id) ? prev : [mapBill(payload.new), ...prev]);
+          } else if (payload.eventType === "UPDATE") {
+            setBills(prev => prev.map(b => b.id === payload.new.id ? mapBill(payload.new) : b));
+          } else if (payload.eventType === "DELETE") {
+            setBills(prev => prev.filter(b => b.id !== payload.old.id));
+          }
+        })
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "grocery_items", filter: `household_id=eq.${householdId}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setGrocery(prev => prev.some(g => g.id === payload.new.id) ? prev : [mapGrocery(payload.new), ...prev]);
+          } else if (payload.eventType === "UPDATE") {
+            setGrocery(prev => prev.map(g => g.id === payload.new.id ? mapGrocery(payload.new) : g));
+          } else if (payload.eventType === "DELETE") {
+            setGrocery(prev => prev.filter(g => g.id !== payload.old.id));
+          }
+        })
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "household_members", filter: `household_id=eq.${householdId}` },
+        () => refetchMembers())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [supabase, householdId, refetchMembers]);
+
+  // ===== Mutators =====
+  const addExpense = async (e) => {
+    if (!supabase || !householdId) return null;
+    const row = {
+      household_id: householdId,
+      label: e.label,
+      amount: Number(e.amount) || 0,
+      category: e.category,
+      paid_by: e.paidBy || userId,
+      split: e.split ?? 50,
+      date: e.date || hebrewDate(),
+      recurring: !!e.recurring,
+      created_by: userId,
     };
-    setState(p => ({ ...p, expenses: [exp, ...p.expenses] }));
-    return exp;
+    const { data, error } = await supabase.from("expenses").insert(row).select().single();
+    if (error) throw error;
+    setExpenses(prev => prev.some(x => x.id === data.id) ? prev : [mapExpense(data), ...prev]);
+    return mapExpense(data);
   };
-  const updateExpense = (id, patch) =>
-    setState(p => ({ ...p, expenses: p.expenses.map(x => x.id === id ? { ...x, ...patch } : x) }));
-  const removeExpense = (id) =>
-    setState(p => ({ ...p, expenses: p.expenses.filter(x => x.id !== id) }));
+  const updateExpense = async (id, patch) => {
+    const dbPatch = {};
+    if ("label" in patch)    dbPatch.label    = patch.label;
+    if ("amount" in patch)   dbPatch.amount   = patch.amount;
+    if ("category" in patch) dbPatch.category = patch.category;
+    if ("paidBy" in patch)   dbPatch.paid_by  = patch.paidBy;
+    if ("split" in patch)    dbPatch.split    = patch.split;
+    if ("date" in patch)     dbPatch.date     = patch.date;
+    if ("recurring" in patch) dbPatch.recurring = patch.recurring;
+    const { data, error } = await supabase.from("expenses").update(dbPatch).eq("id", id).select().single();
+    if (error) throw error;
+    setExpenses(prev => prev.map(x => x.id === id ? mapExpense(data) : x));
+  };
+  const removeExpense = async (id) => {
+    const { error } = await supabase.from("expenses").delete().eq("id", id);
+    if (error) throw error;
+    setExpenses(prev => prev.filter(x => x.id !== id));
+  };
 
-  const addBill = (b) => {
-    const bill = {
-      id: `b-${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
-      status: "upcoming", assignee: "you",
-      ...b,
+  const addBill = async (b) => {
+    if (!supabase || !householdId) return null;
+    const row = {
+      household_id: householdId,
+      label: b.label,
+      amount: Number(b.amount) || 0,
+      category: b.category,
+      due_date: b.dueDate || "",
+      recurring: b.recurring || null,
+      assignee: b.assignee || userId,
+      status: b.status || "upcoming",
+      paid: !!b.paid,
     };
-    setState(p => ({ ...p, bills: [bill, ...p.bills] }));
-    return bill;
+    const { data, error } = await supabase.from("bills").insert(row).select().single();
+    if (error) throw error;
+    setBills(prev => prev.some(x => x.id === data.id) ? prev : [mapBill(data), ...prev]);
+    return mapBill(data);
   };
-  const updateBill = (id, patch) =>
-    setState(p => ({ ...p, bills: p.bills.map(x => x.id === id ? { ...x, ...patch } : x) }));
-  const removeBill = (id) =>
-    setState(p => ({ ...p, bills: p.bills.filter(x => x.id !== id) }));
+  const updateBill = async (id, patch) => {
+    const dbPatch = {};
+    if ("label" in patch)    dbPatch.label = patch.label;
+    if ("amount" in patch)   dbPatch.amount = patch.amount;
+    if ("category" in patch) dbPatch.category = patch.category;
+    if ("dueDate" in patch)  dbPatch.due_date = patch.dueDate;
+    if ("recurring" in patch) dbPatch.recurring = patch.recurring;
+    if ("assignee" in patch) dbPatch.assignee = patch.assignee;
+    if ("status" in patch)   dbPatch.status = patch.status;
+    if ("paid" in patch)     dbPatch.paid = patch.paid;
+    const { data, error } = await supabase.from("bills").update(dbPatch).eq("id", id).select().single();
+    if (error) throw error;
+    setBills(prev => prev.map(x => x.id === id ? mapBill(data) : x));
+  };
+  const removeBill = async (id) => {
+    const { error } = await supabase.from("bills").delete().eq("id", id);
+    if (error) throw error;
+    setBills(prev => prev.filter(x => x.id !== id));
+  };
 
-  const addGroceryItem = (i) => {
-    const item = {
-      id: `g-${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
-      checked: false, addedBy: "you", section: "pantry", qty: "",
-      ...i,
+  const addGroceryItem = async (i) => {
+    if (!supabase || !householdId) return null;
+    const row = {
+      household_id: householdId,
+      name: i.name,
+      qty: i.qty || "",
+      section: i.section || "pantry",
+      added_by: i.addedBy === "ai" ? null : (i.addedBy || userId),
+      checked: !!i.checked,
     };
-    setState(p => ({ ...p, grocery: [item, ...p.grocery] }));
-    return item;
+    const { data, error } = await supabase.from("grocery_items").insert(row).select().single();
+    if (error) throw error;
+    setGrocery(prev => prev.some(x => x.id === data.id) ? prev : [mapGrocery(data), ...prev]);
+    return mapGrocery(data);
   };
-  const toggleGroceryItem = (id) =>
-    setState(p => ({ ...p, grocery: p.grocery.map(x => x.id === id ? { ...x, checked: !x.checked } : x) }));
-  const removeGroceryItem = (id) =>
-    setState(p => ({ ...p, grocery: p.grocery.filter(x => x.id !== id) }));
-
-  const setApiKey = (k) => setState(p => ({ ...p, apiKey: k }));
-  const setModel = (m) => setState(p => ({ ...p, model: m }));
-  const setBudget = (b) => setState(p => ({ ...p, budget: b }));
-
-  const addPerson = (input) => {
-    const name = (input.name || "").trim();
-    if (!name) return null;
-    const id = `p-${Date.now()}-${Math.random().toString(36).slice(2,5)}`;
-    const person = {
-      id,
-      name,
-      color: input.color || "mint",
-      short: input.short || name.split(/\s+/)[0].slice(0, 2),
-    };
-    setState(p => ({ ...p, people: [...p.people, person] }));
-    return person;
+  const toggleGroceryItem = async (id) => {
+    const item = stateRef.current.grocery.find(g => g.id === id);
+    if (!item) return;
+    const next = !item.checked;
+    setGrocery(prev => prev.map(g => g.id === id ? { ...g, checked: next } : g));
+    const { error } = await supabase.from("grocery_items").update({ checked: next }).eq("id", id);
+    if (error) {
+      // revert on failure
+      setGrocery(prev => prev.map(g => g.id === id ? { ...g, checked: item.checked } : g));
+    }
   };
-  const updatePerson = (id, patch) => {
-    setState(p => ({ ...p, people: p.people.map(x => x.id === id ? { ...x, ...patch } : x) }));
-  };
-  const removePerson = (id) => {
-    setState(p => ({ ...p, people: p.people.filter(x => x.id !== id) }));
+  const removeGroceryItem = async (id) => {
+    setGrocery(prev => prev.filter(g => g.id !== id));
+    await supabase.from("grocery_items").delete().eq("id", id);
   };
 
-  const clearChat = () => setState(p => ({ ...p, chat: [] }));
-
-  const resetAll = () => {
-    setState(p => ({ ...initialState(), apiKey: p.apiKey, model: p.model }));
+  // ===== Person actions =====
+  const updateMyProfile = async (patch) => {
+    if (!supabase || !userId) return;
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        ...(patch.name != null ? { display_name: patch.name } : {}),
+        ...(patch.color != null ? { color: patch.color } : {}),
+      })
+      .eq("id", userId)
+      .select().single();
+    if (error) throw error;
+    refreshProfile && refreshProfile();
+    await refetchMembers();
+    return data;
+  };
+  const removeMember = async (profileId) => {
+    const { error } = await supabase.rpc("remove_member", { target_profile: profileId });
+    if (error) throw error;
+    await refetchMembers();
+  };
+  const createInvite = async () => {
+    if (!supabase || !householdId || !userId) return null;
+    const code = Math.random().toString(36).slice(2, 10).toUpperCase();
+    const { data, error } = await supabase
+      .from("invitations")
+      .insert({ household_id: householdId, code, created_by: userId })
+      .select().single();
+    if (error) throw error;
+    return data;
   };
 
-  // ===== chat orchestration =====
-  // Sends a user message, runs tool-use loop against Claude API, updates chat + data live.
+  // ===== Settings =====
+  const saveSettings = async (patch) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    if (!supabase || !userId) return;
+    await supabase.from("user_settings").upsert({
+      profile_id: userId,
+      api_key: next.apiKey,
+      model: next.model,
+      budget: next.budget,
+    });
+  };
+  const setApiKey = (apiKey) => saveSettings({ apiKey });
+  const setModel  = (model)  => saveSettings({ model });
+  const setBudget = (budget) => saveSettings({ budget });
+
+  // ===== Chat =====
+  const persistChat = async (msg) => {
+    if (!supabase || !userId) return;
+    await supabase.from("chat_messages").insert({
+      profile_id: userId,
+      role: msg.role,
+      content: msg.content,
+    });
+  };
+
+  const clearChat = async () => {
+    setChat([]);
+    if (supabase && userId) {
+      await supabase.from("chat_messages").delete().eq("profile_id", userId);
+    }
+  };
+
+  const wipeHousehold = async () => {
+    if (!supabase) return;
+    await supabase.rpc("wipe_household");
+    setExpenses([]); setBills([]); setGrocery([]);
+  };
+
+  // ===== Chat orchestration =====
   const sendChatMessage = async (text) => {
     if (!text || !text.trim()) return;
     const cur = stateRef.current;
-    if (!cur.apiKey) return; // UI gates this; no-op if somehow called
-    let history = [...cur.chat, { role: "user", content: text }];
-    setState(p => ({ ...p, chat: history }));
+    const apiKey = cur.settings.apiKey;
+    if (!apiKey) return;
+
+    const userMsg = { role: "user", content: text };
+    let history = [...cur.chat, userMsg];
+    setChat(history);
+    persistChat(userMsg);
     setPending(true);
 
-    // local mutable working state so multiple tool calls in one turn see fresh data
+    // local working data for tool execution within this turn
     let working = {
-      expenses: cur.expenses,
-      bills: cur.bills,
-      grocery: cur.grocery,
-      budget: cur.budget,
+      expenses: cur.expenses, bills: cur.bills, grocery: cur.grocery,
+      people: cur.people, budget: cur.settings.budget,
     };
 
     try {
       for (let i = 0; i < 6; i++) {
         const resp = await window.callClaude({
-          apiKey: cur.apiKey,
-          model: cur.model,
-          messages: history,
-          people: stateRef.current.people,
+          apiKey, model: cur.settings.model,
+          messages: history, people: cur.people,
         });
-        history = [...history, { role: "assistant", content: resp.content }];
-        setState(p => ({ ...p, chat: history }));
+        const assistantMsg = { role: "assistant", content: resp.content };
+        history = [...history, assistantMsg];
+        setChat(history);
+        persistChat(assistantMsg);
 
         if (resp.stop_reason !== "tool_use") break;
 
         const toolResults = [];
         for (const block of resp.content) {
           if (block.type === "tool_use") {
-            const { result, next } = window.executeTool(block.name, block.input, working);
+            // pure tool: gives back result + next-working snapshot
+            const { result, next } = window.executeTool(block.name, block.input, {
+              ...working,
+              userId,
+            });
             working = next;
+            // persist write side-effects to DB
+            try {
+              if (block.name === "add_expense" && result.ok && result.row) {
+                await addExpense(result.row);
+              } else if (block.name === "add_bill" && result.ok && result.row) {
+                await addBill(result.row);
+              } else if (block.name === "add_grocery_item" && result.ok && result.row) {
+                await addGroceryItem(result.row);
+              } else if (block.name === "mark_bill_paid" && result.ok) {
+                await updateBill(result.id, { paid: result.paid, status: result.paid ? "paid" : "upcoming" });
+              }
+            } catch (dbErr) {
+              result.ok = false;
+              result.error = `שגיאת DB: ${dbErr.message || dbErr}`;
+            }
             toolResults.push({
               type: "tool_result",
               tool_use_id: block.id,
@@ -152,56 +404,33 @@ const AppStateProvider = ({ children }) => {
             });
           }
         }
-        history = [...history, { role: "user", content: toolResults }];
-        setState(p => ({
-          ...p,
-          chat: history,
-          expenses: working.expenses,
-          bills: working.bills,
-          grocery: working.grocery,
-        }));
+        const trMsg = { role: "user", content: toolResults };
+        history = [...history, trMsg];
+        setChat(history);
+        persistChat(trMsg);
       }
-      // commit final data
-      setState(p => ({
-        ...p,
-        expenses: working.expenses,
-        bills: working.bills,
-        grocery: working.grocery,
-      }));
     } catch (err) {
-      setState(p => ({
-        ...p,
-        chat: [
-          ...history,
-          { role: "assistant", content: [{ type: "text", text: `שגיאה מה-API: ${err.message}` }] },
-        ],
-      }));
+      const errMsg = { role: "assistant", content: [{ type: "text", text: `שגיאה: ${err.message}` }] };
+      setChat([...history, errMsg]);
+      persistChat(errMsg);
     } finally {
       setPending(false);
     }
   };
 
   const value = {
-    state,
-    pending,
+    state: { expenses, bills, grocery, people, chat, ...settings, budget: settings.budget },
+    pending, hydrating,
     addExpense, updateExpense, removeExpense,
     addBill, updateBill, removeBill,
     addGroceryItem, toggleGroceryItem, removeGroceryItem,
-    setApiKey, setModel, setBudget,
-    addPerson, updatePerson, removePerson,
-    sendChatMessage, clearChat,
-    resetAll,
+    updateMyProfile, removeMember, createInvite,
+    setApiKey, setModel, setBudget, saveSettings,
+    clearChat, wipeHousehold,
+    sendChatMessage,
   };
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
-};
-
-const hebrewDate = () => {
-  try {
-    return new Date().toLocaleDateString("he-IL", { day: "numeric", month: "long" });
-  } catch (e) {
-    return new Date().toLocaleDateString();
-  }
 };
 
 Object.assign(window, { AppStateContext, AppStateProvider, useAppState, hebrewDate });
