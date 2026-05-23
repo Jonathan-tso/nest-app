@@ -80,7 +80,6 @@ const SpendOverview = ({ expenses, budget, onOpen }) => {
         <div>
           <div className="tiny">החודש</div>
           <div className="h1 num" style={{ marginTop: 4 }}>{shek(total, 0)}</div>
-          {budget > 0 && <div className="small muted">מתוך {shek(budget, 0)} · {pct}%</div>}
         </div>
         {data.length > 0 && <Donut data={data.slice(0, 5)} size={104} stroke={14} />}
       </div>
