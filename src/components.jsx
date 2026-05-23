@@ -123,34 +123,18 @@ const TopBar = ({ title, onBack, trailing }) =>
 
 
 // ====== Logo ======
-const NestLogo = ({ size = 22 }) => {
-  const id = React.useId();
-  const gradId = `nl-bar-${id.replace(/:/g, "")}`;
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <svg width={size} height={size} viewBox="0 0 256 256" fill="none">
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#B7A8F1" />
-            <stop offset="1" stopColor="#8E7BE0" />
-          </linearGradient>
-        </defs>
-        <path d="M128 52 L172 95 L172 70 L188 70 L188 110 L202 124 L202 192 L54 192 L54 124 Z"
-              fill="none" stroke="#2D2E37" strokeWidth="13"
-              strokeLinejoin="round" strokeLinecap="round" />
-        <rect x="118" y="148" width="16" height="40" rx="8" fill={`url(#${gradId})`} />
-        <rect x="142" y="124" width="16" height="64" rx="8" fill={`url(#${gradId})`} />
-        <rect x="166" y="100" width="16" height="88" rx="8" fill={`url(#${gradId})`} />
-        <path d="M90 108 L94 122 L108 126 L94 130 L90 144 L86 130 L72 126 L86 122 Z" fill="#B5A6F2" />
-        <path d="M112 134 L114.5 142 L122 144.5 L114.5 147 L112 154.5 L109.5 147 L102 144.5 L109.5 142 Z" fill="#C8BBF5" />
-        <path d="M40 174 C 70 246 186 246 216 174 L 216 198 C 188 224 68 224 40 198 Z" fill="#E5D2B4" />
-        <path d="M52 180 Q 128 238 204 180" fill="none" stroke="#C5AC85" strokeWidth="3" strokeLinecap="round" />
-        <path d="M78 200 Q 128 224 178 200" fill="none" stroke="#C5AC85" strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-      <span style={{ fontSize: size, fontWeight: 800, letterSpacing: "-0.04em" }}>Nest</span>
-    </div>
-  );
-};
+const NestLogo = ({ size = 22 }) => (
+  <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+    <img
+      src="./nest-logo.svg"
+      alt=""
+      height={size}
+      width={Math.round(size * 753 / 855)}
+      style={{ display: "block" }}
+    />
+    <span style={{ fontSize: size, fontWeight: 800, letterSpacing: "-0.04em" }}>Nest</span>
+  </div>
+);
 
 
 // ====== Donut chart ======
