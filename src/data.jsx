@@ -1,5 +1,5 @@
 /* global React */
-// Nest — קטגוריות, סקציות וחברי הבית. נתונים מתחילים ריקים.
+// Nest — קטגוריות, סקציות. חברי הבית נשמרים ב-store ונערכים על ידי המשתמש.
 
 const CATEGORIES = [
   { id: "groceries",    label: "קניות",          color: "mint",     hex: "#9BD3A8", icon: "cart"    },
@@ -17,10 +17,11 @@ const CATEGORIES = [
 
 const CAT = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
-const PEOPLE = [
-  { id: "you", name: "דניאל", color: "sky",  short: "אתה" },
-  { id: "noa", name: "נועה",  color: "mint", short: "נועה" },
+const DEFAULT_PEOPLE = [
+  { id: "you", name: "דניאל", color: "sky", short: "אתה", owner: true },
 ];
+
+const AVATAR_COLORS = ["sky", "mint", "pink", "butter", "coral", "lavender", "cream"];
 
 const GROCERY_SECTIONS = [
   { id: "produce",   label: "ירקות ופירות", icon: "leaf",    color: "mint" },
@@ -30,4 +31,4 @@ const GROCERY_SECTIONS = [
   { id: "household", label: "לבית",         icon: "leaf",    color: "pink" },
 ];
 
-Object.assign(window, { CATEGORIES, CAT, PEOPLE, GROCERY_SECTIONS });
+Object.assign(window, { CATEGORIES, CAT, DEFAULT_PEOPLE, AVATAR_COLORS, GROCERY_SECTIONS });

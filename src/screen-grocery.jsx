@@ -1,4 +1,4 @@
-/* global React, Icon, Avatar, TopBar, useAppState, GROCERY_SECTIONS, PEOPLE */
+/* global React, Icon, Avatar, TopBar, useAppState, GROCERY_SECTIONS */
 
 const SwipeRow = ({ children, onDelete }) => {
   const ref = React.useRef(null);
@@ -52,8 +52,8 @@ const SwipeRow = ({ children, onDelete }) => {
   );
 };
 
-const GroceryItem = ({ item, onToggle, onDelete }) => {
-  const author = PEOPLE.find(p => p.id === item.addedBy);
+const GroceryItem = ({ item, people, onToggle, onDelete }) => {
+  const author = people.find(p => p.id === item.addedBy);
   return (
     <SwipeRow onDelete={onDelete}>
       <div
@@ -91,6 +91,7 @@ const GroceryItem = ({ item, onToggle, onDelete }) => {
 const GroceryScreen = ({ onBack }) => {
   const { state, addGroceryItem, toggleGroceryItem, removeGroceryItem } = useAppState();
   const items = state.grocery;
+  const people = state.people;
   const [text, setText] = React.useState("");
   const [hideChecked, setHideChecked] = React.useState(false);
 
@@ -179,6 +180,7 @@ const GroceryScreen = ({ onBack }) => {
                 <GroceryItem
                   key={item.id}
                   item={item}
+                  people={people}
                   onToggle={() => toggleGroceryItem(item.id)}
                   onDelete={() => removeGroceryItem(item.id)}
                 />

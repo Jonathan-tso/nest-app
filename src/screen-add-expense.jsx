@@ -1,9 +1,10 @@
-/* global React, Icon, Avatar, Sheet, useAppState, CATEGORIES, PEOPLE */
+/* global React, Icon, Avatar, Sheet, useAppState, CATEGORIES */
 
 const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
 const AddExpenseSheet = ({ open, onClose }) => {
-  const { addExpense } = useAppState();
+  const { state, addExpense } = useAppState();
+  const people = state.people;
   const [amount, setAmount] = React.useState("");
   const [category, setCategory] = React.useState("groceries");
   const [paidBy, setPaidBy] = React.useState("you");
@@ -91,8 +92,8 @@ const AddExpenseSheet = ({ open, onClose }) => {
 
         <div className="mt-16">
           <div className="field-label">שילם</div>
-          <div className="hstack gap-8">
-            {PEOPLE.map(p => (
+          <div className="hstack gap-8" style={{ flexWrap: "wrap" }}>
+            {people.map(p => (
               <button
                 key={p.id}
                 onClick={() => setPaidBy(p.id)}
