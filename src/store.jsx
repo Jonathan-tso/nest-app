@@ -20,6 +20,7 @@ const mapExpense = (r) => ({
   date: r.date || "",
   recurring: !!r.recurring,
   createdBy: r.created_by,
+  createdAt: r.created_at || null,
 });
 const mapBill = (r) => ({
   id: r.id,
