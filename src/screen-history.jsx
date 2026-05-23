@@ -17,6 +17,7 @@ const ChevLeft = () => (
 const HistoryScreen = ({ onBack }) => {
   const { state } = useAppState();
   const allExpenses = state.expenses;
+  const allBills = state.bills || [];
 
   const now = new Date();
   const [month, setMonth] = React.useState(now.getMonth());
@@ -34,15 +35,25 @@ const HistoryScreen = ({ onBack }) => {
     else setMonth(m => m + 1);
   };
 
+  const selectedMonthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+
   const expenses = allExpenses.filter(e => {
     if (!e.createdAt) return true;
     const d = new Date(e.createdAt);
     return d.getMonth() === month && d.getFullYear() === year;
   });
 
-  const total = expenses.reduce((s, e) => s + e.amount, 0);
+  const paidBillsThisMonth = allBills.filter(b => {
+    if (!b.paid) return false;
+    const mk = b.dueDate && /^(\d{4})-(\d{2})/.exec(b.dueDate);
+    return mk ? `${mk[1]}-${mk[2]}` === selectedMonthKey : false;
+  });
+
+  const combined = [...expenses, ...paidBillsThisMonth];
+
+  const total = combined.reduce((s, e) => s + e.amount, 0);
   const byCat = {};
-  expenses.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+  combined.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
   const cats = Object.entries(byCat)
     .map(([id, v]) => ({ ...(CAT[id] || CAT.household), id, value: v }))
     .sort((a, b) => b.value - a.value);
@@ -75,7 +86,7 @@ const HistoryScreen = ({ onBack }) => {
           <div className="tiny">סך הכל החודש</div>
           <div className="h1 num" style={{ marginTop: 4 }}>{shek(total, 0)}</div>
           <div className="small muted" style={{ marginTop: 2 }}>
-            {expenses.length > 0 ? `${expenses.length} הוצאות` : "אין הוצאות לחודש זה"}
+            {combined.length > 0 ? `${combined.length} הוצאות` : "אין הוצאות לחודש זה"}
           </div>
         </div>
 
@@ -115,13 +126,13 @@ const HistoryScreen = ({ onBack }) => {
         {/* Expense list */}
         <div>
           <div className="h3 mb-12">כל ההוצאות</div>
-          {expenses.length === 0 ? (
+          {combined.length === 0 ? (
             <div className="card dashed" style={{ padding: 32, textAlign: "center", background: "transparent" }}>
               <div className="small muted">אין הוצאות רשומות לחודש זה</div>
             </div>
           ) : (
             <div className="card" style={{ padding: "4px 18px" }}>
-              {expenses.map(e => {
+              {combined.map(e => {
                 const c = CAT[e.category] || CAT.household;
                 return (
                   <div key={e.id} className="row">
@@ -130,7 +141,7 @@ const HistoryScreen = ({ onBack }) => {
                     </div>
                     <div className="meta">
                       <div className="t">{e.label}</div>
-                      <div className="s">{e.date}</div>
+                      <div className="s">{e.date || e.dueDate || ""}</div>
                     </div>
                     <div className="trail">
                       <div className="amt num">{shek(e.amount, e.amount % 1 ? 2 : 0)}</div>

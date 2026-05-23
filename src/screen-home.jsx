@@ -72,7 +72,7 @@ const SpendOverview = ({ expenses, budget, onOpen }) => {
     .map(([id, v]) => ({ value: v, color: CAT[id]?.hex || "#999", label: CAT[id]?.label || id, id }))
     .sort((a, b) => b.value - a.value);
 
-  const pct = budget ? Math.round((total / budget) * 100) : 0;
+  const donutData = data.length > 0 ? data.slice(0, 5) : [{ value: 1, color: "#E8E5DC", label: "", id: "empty" }];
 
   return (
     <div className="card" onClick={onOpen} style={{ padding: 20, cursor: "pointer" }}>
@@ -81,7 +81,7 @@ const SpendOverview = ({ expenses, budget, onOpen }) => {
           <div className="tiny">החודש</div>
           <div className="h1 num" style={{ marginTop: 4 }}>{shek(total, 0)}</div>
         </div>
-        {data.length > 0 && <Donut data={data.slice(0, 5)} size={104} stroke={14} />}
+        <Donut data={donutData} size={104} stroke={14} />
       </div>
     </div>
   );
@@ -249,18 +249,28 @@ const AIInput = ({ onSubmit }) => {
   );
 };
 
+const billMonthKey = (s) => {
+  const m = s && /^(\d{4})-(\d{2})/.exec(s);
+  return m ? `${m[1]}-${m[2]}` : null;
+};
+
 const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onAISubmit }) => {
   const { state } = useAppState();
   const { expenses, bills, grocery, budget, people } = state;
 
   const now = new Date();
+  const nowMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
   const thisMonthExpenses = expenses.filter(e => {
     if (!e.createdAt) return true;
     const d = new Date(e.createdAt);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
 
-  const totalSpent = thisMonthExpenses.reduce((s, e) => s + e.amount, 0);
+  const thisMonthPaidBills = bills.filter(b => b.paid && billMonthKey(b.dueDate) === nowMonthKey);
+  const combinedSpending = [...thisMonthExpenses, ...thisMonthPaidBills];
+
+  const totalSpent = combinedSpending.reduce((s, e) => s + e.amount, 0);
   const balance = computeBalance(expenses, people);
   const you = people.find(p => p.isYou) || people[0];
 
@@ -296,7 +306,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
         <AIInput onSubmit={onAISubmit} />
         <OverdueBills bills={bills} people={people} onOpen={openBills} />
         <BalanceCard balance={balance} people={people} onSettle={() => nav("household")} />
-        <SpendOverview expenses={thisMonthExpenses} budget={budget} onOpen={openHistory} />
+        <SpendOverview expenses={combinedSpending} budget={budget} onOpen={openHistory} />
         <GroceryPreview items={grocery} people={people} onOpen={openGrocery} onAdd={openGrocery} />
         <RecentTransactions expenses={expenses} people={people} limit={3} onSeeAll={openHistory} />
       </div>
