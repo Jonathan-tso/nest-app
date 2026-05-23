@@ -402,20 +402,16 @@ const BillsScreen = ({ onBack }) => {
 
   return (
     <div className="scroll">
-      <TopBar
-        title="חשבונות"
-        onBack={onBack}
-        trailing={
-          <button className="btn icon-only soft" onClick={() => setAdding(true)} style={{ background: "var(--cream-soft)" }}>
-            <Icon name="plus" size={18} />
-          </button>
-        }
-      />
+      <TopBar title="חשבונות" onBack={onBack} />
       <div className="px-22 vstack gap-12">
         <div className="card" style={{ padding: 18, background: "var(--cream)" }}>
           <div className="tiny">לתשלום</div>
           <div className="h1 num" style={{ marginTop: 4 }}>{shek(totalDue, 0)}</div>
         </div>
+
+        <button className="btn" onClick={() => setAdding(true)} style={{ width: "100%" }}>
+          <Icon name="plus" size={18} /> הוסף הוצאה
+        </button>
 
         {bills.length > 0 && (
           <div className="hstack gap-6" style={{ overflowX: "auto", paddingBottom: 2 }}>
@@ -436,13 +432,11 @@ const BillsScreen = ({ onBack }) => {
         )}
 
         {filtered.length === 0 ? (
-          <button onClick={() => setAdding(true)} className="card dashed" style={{
-            background: "transparent", padding: 28, textAlign: "center", cursor: "pointer",
-            fontFamily: "inherit", width: "100%",
+          <div className="card dashed" style={{
+            background: "transparent", padding: 28, textAlign: "center",
           }}>
-            <div className="small muted" style={{ marginBottom: 6 }}>אין חשבונות</div>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>+ הוסף חשבון</div>
-          </button>
+            <div className="small muted">{bills.length === 0 ? "אין חשבונות עדיין" : "אין חשבונות בסינון הזה"}</div>
+          </div>
         ) : (
           monthGroups.map(group => (
             <div key={group.key}>
