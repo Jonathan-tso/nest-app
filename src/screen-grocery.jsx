@@ -354,32 +354,7 @@ const GroceryScreen = ({ onBack }) => {
 
   return (
     <div className="scroll">
-      <TopBar
-        title="קניות"
-        onBack={onBack}
-        trailing={
-          <div className="hstack gap-6">
-            {items.length > 0 && (
-              <button
-                className="btn icon-only soft"
-                style={{ background: "var(--cream-soft)" }}
-                onClick={() => setHideChecked(!hideChecked)}
-                title="הצג/הסתר מסומנים"
-              >
-                <Icon name={hideChecked ? "filter" : "check"} size={18} />
-              </button>
-            )}
-            <button
-              className="btn icon-only soft"
-              style={{ background: "var(--cream-soft)" }}
-              onClick={startCreateList}
-              title="רשימה חדשה"
-            >
-              <Icon name="plus" size={18} />
-            </button>
-          </div>
-        }
-      />
+      <TopBar title="קניות" onBack={onBack} />
 
       {lists.length === 0 ? (
         <div className="px-22">
@@ -551,6 +526,20 @@ const GroceryScreen = ({ onBack }) => {
                 </button>
               ))}
             </div>
+
+            {items.length > 0 && (
+              <button
+                onClick={() => setHideChecked(!hideChecked)}
+                className="chip outline"
+                style={{
+                  fontFamily: "inherit", alignSelf: "flex-start", gap: 6,
+                  background: hideChecked ? "var(--cream-soft)" : "transparent",
+                }}
+              >
+                <Icon name={hideChecked ? "check" : "filter"} size={14} />
+                {hideChecked ? "הצג מסומנים" : "הסתר מסומנים"}
+              </button>
+            )}
           </div>
 
           <div style={{ marginTop: 12 }}>
