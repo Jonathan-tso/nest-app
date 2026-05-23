@@ -23,7 +23,7 @@ const OverdueBills = ({ bills, people, onOpen }) => {
   const overdue = bills.filter(b => b.status === "overdue");
   if (!overdue.length) return null;
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: "transparent", background: "var(--ink)", color: "#fff" }}>
+    <div className="card" onClick={onOpen} style={{ padding: 0, overflow: "hidden", borderColor: "transparent", background: "var(--ink)", color: "#fff", cursor: "pointer" }}>
       <div style={{ padding: "16px 18px 12px" }}>
         <div className="hstack between">
           <div className="hstack gap-8">
@@ -64,7 +64,7 @@ const OverdueBills = ({ bills, people, onOpen }) => {
   );
 };
 
-const SpendOverview = ({ expenses, budget }) => {
+const SpendOverview = ({ expenses, budget, onOpen }) => {
   const total = expenses.reduce((s, e) => s + e.amount, 0);
   const byCat = {};
   expenses.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
@@ -75,12 +75,11 @@ const SpendOverview = ({ expenses, budget }) => {
   const pct = budget ? Math.round((total / budget) * 100) : 0;
 
   return (
-    <div className="card" style={{ padding: 20 }}>
+    <div className="card" onClick={onOpen} style={{ padding: 20, cursor: "pointer" }}>
       <div className="hstack between">
         <div>
           <div className="tiny">החודש</div>
           <div className="h1 num" style={{ marginTop: 4 }}>{shek(total, 0)}</div>
-          {budget > 0 && <div className="small muted">מתוך {shek(budget, 0)} · {pct}%</div>}
         </div>
         {data.length > 0 && <Donut data={data.slice(0, 5)} size={104} stroke={14} />}
       </div>
@@ -95,7 +94,7 @@ const BalanceCard = ({ balance, people, onSettle }) => {
   const counterpart = others[0];
   if (!counterpart) return null;
   return (
-    <div className="card" style={{ padding: 18, background: "var(--cream-soft)" }}>
+    <div className="card" onClick={onSettle} style={{ padding: 18, background: "var(--cream-soft)", cursor: "pointer" }}>
       <div className="hstack between">
         <div className="vstack gap-4">
           <div className="tiny">מאזן</div>
@@ -136,7 +135,7 @@ const GroceryPreview = ({ items, people, onOpen, onAdd }) => {
   }
   const top = pending.slice(0, 4);
   return (
-    <div className="card" style={{ padding: 18 }}>
+    <div className="card" onClick={onOpen} style={{ padding: 18, cursor: "pointer" }}>
       <div className="hstack between mb-12">
         <div className="hstack gap-8">
           <div className="bg-mint" style={{ width: 28, height: 28, borderRadius: 9, display: "grid", placeItems: "center" }}>
@@ -147,9 +146,7 @@ const GroceryPreview = ({ items, people, onOpen, onAdd }) => {
             <div className="small muted">{pending.length} ממתינים</div>
           </div>
         </div>
-        <button className="chip" onClick={onOpen} style={{ background: "transparent" }}>
-          פתח <Icon name="chevron" size={14} />
-        </button>
+        <Icon name="chevron" size={16} color="var(--text-2)" />
       </div>
       <div className="vstack gap-6">
         {top.map(item => {
@@ -184,11 +181,11 @@ const RecentTransactions = ({ expenses, people, limit = 3, onSeeAll }) => {
         )}
       </div>
       {expenses.length === 0 ? (
-        <div className="card" style={{ padding: 18, textAlign: "center" }}>
+        <div className="card" onClick={onSeeAll} style={{ padding: 18, textAlign: "center", cursor: "pointer" }}>
           <div className="small muted">עדיין אין הוצאות. ספר ל-AI או הוסף ידנית.</div>
         </div>
       ) : (
-        <div className="card" style={{ padding: "4px 18px" }}>
+        <div className="card" onClick={onSeeAll} style={{ padding: "4px 18px", cursor: "pointer" }}>
           {recent.map(e => {
             const c = CAT[e.category] || CAT.household;
             const author = people.find(p => p.id === e.paidBy);
@@ -277,7 +274,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
           <div>
             <div className="small muted">היי {you?.name || ""}</div>
             <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2, letterSpacing: "-0.02em" }}>
-              {totalSpent > 0 ? "מבט על החודש" : "נתחיל"}
+              {"מבט מהיר על " + new Date().toLocaleDateString("he-IL", { month: "long" })}
             </div>
           </div>
           <div style={{ textAlign: "left" }}>
@@ -291,7 +288,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
         <AIInput onSubmit={onAISubmit} />
         <OverdueBills bills={bills} people={people} onOpen={openBills} />
         <BalanceCard balance={balance} people={people} onSettle={() => nav("household")} />
-        <SpendOverview expenses={expenses} budget={budget} />
+        <SpendOverview expenses={expenses} budget={budget} onOpen={openHistory} />
         <GroceryPreview items={grocery} people={people} onOpen={openGrocery} onAdd={openGrocery} />
         <RecentTransactions expenses={expenses} people={people} limit={3} onSeeAll={openHistory} />
       </div>
