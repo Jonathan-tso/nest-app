@@ -3,6 +3,36 @@
 
 const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const parseISOToDate = (s) => {
+  if (!s) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) return null;
+  return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+};
+
+const formatHebrewDate = (s) => {
+  const d = parseISOToDate(s);
+  if (!d) return s || "";
+  return new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long" }).format(d);
+};
+
+const monthKey = (s) => {
+  const d = parseISOToDate(s);
+  if (!d) return "no-date";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const monthLabel = (key) => {
+  if (key === "no-date") return "ללא תאריך";
+  const [y, m] = key.split("-").map(Number);
+  return new Intl.DateTimeFormat("he-IL", { month: "long", year: "numeric" }).format(new Date(y, m - 1, 1));
+};
+
 const BillRow = ({ bill, people, onPay, onPick }) => {
   const c = CAT[bill.category] || CAT.household;
   const assignee = people.find(p => p.id === bill.assignee);
@@ -19,7 +49,7 @@ const BillRow = ({ bill, people, onPay, onPick }) => {
           {bill.recurring && <Icon name="repeat" size={12} color="var(--text-3)" />}
         </div>
         <div className="s">
-          {bill.dueDate}
+          {formatHebrewDate(bill.dueDate)}
           {assignee ? <> · {assignee.name}</> : null}
           {overdue && <span style={{ color: "var(--danger)", fontWeight: 700 }}> · באיחור</span>}
           {paid && <span style={{ color: "var(--good)", fontWeight: 700 }}> · שולם</span>}
@@ -90,7 +120,7 @@ const BillDetailSheet = ({ bill, people, onClose, onUpdate, onDelete }) => {
             <div style={{ flex: 1 }}>
               <div className="tiny">חשבון</div>
               <div style={{ fontSize: 16, fontWeight: 700 }}>{bill.label}</div>
-              {bill.dueDate && <div className="small muted">{bill.dueDate}</div>}
+              {bill.dueDate && <div className="small muted">{formatHebrewDate(bill.dueDate)}</div>}
             </div>
           </div>
 
@@ -110,8 +140,13 @@ const BillDetailSheet = ({ bill, people, onClose, onUpdate, onDelete }) => {
           </div>
 
           <div className="mt-16">
-            <div className="field-label">תאריך תשלום</div>
-            <input className="input" value={dueDate} onChange={e => setDueDate(e.target.value)} placeholder="לדוגמה: 1 ביוני" />
+            <div className="field-label">תאריך</div>
+            <input
+              className="input"
+              type="date"
+              value={parseISOToDate(dueDate) ? dueDate : ""}
+              onChange={e => setDueDate(e.target.value)}
+            />
           </div>
 
           <div className="mt-16">
@@ -196,14 +231,17 @@ const AddBillSheet = ({ open, people, onClose, onAdd }) => {
   const [amount, setAmount] = React.useState("");
   const [category, setCategory] = React.useState("rent");
   const [assignee, setAssignee] = React.useState(me?.id || "");
-  const [dueDate, setDueDate] = React.useState("");
+  const [dueDate, setDueDate] = React.useState(todayISO());
+  const [paid, setPaid] = React.useState(true);
   const [recurring, setRecurring] = React.useState("");
 
   React.useEffect(() => {
     if (open) {
       setLabel(""); setAmount(""); setCategory("rent");
       setAssignee(me?.id || "");
-      setDueDate(""); setRecurring("");
+      setDueDate(todayISO());
+      setPaid(true);
+      setRecurring("");
     }
   }, [open, me?.id]);
 
@@ -216,7 +254,8 @@ const AddBillSheet = ({ open, people, onClose, onAdd }) => {
       assignee,
       dueDate,
       recurring: recurring || null,
-      status: "upcoming",
+      status: paid ? "paid" : "upcoming",
+      paid,
     });
     onClose();
   };
@@ -238,8 +277,34 @@ const AddBillSheet = ({ open, people, onClose, onAdd }) => {
         </div>
 
         <div className="mt-16">
-          <div className="field-label">תאריך תשלום</div>
-          <input className="input" value={dueDate} onChange={e => setDueDate(e.target.value)} placeholder="לדוגמה: 1 ביוני" />
+          <div className="field-label">תאריך</div>
+          <input
+            className="input"
+            type="date"
+            value={dueDate}
+            onChange={e => setDueDate(e.target.value)}
+          />
+        </div>
+
+        <div className="mt-16 hstack between" style={{
+          padding: "14px 16px", borderRadius: 14, background: "var(--cream-soft)",
+        }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>שולם</div>
+            <div className="small muted">{paid ? "תיעוד הוצאה שכבר שולמה" : "ייכנס כחשבון ממתין לתשלום"}</div>
+          </div>
+          <button
+            onClick={() => setPaid(!paid)}
+            style={{
+              width: 50, height: 28, borderRadius: 999,
+              background: paid ? "var(--good)" : "var(--line-strong)",
+              border: "none", padding: 3, cursor: "pointer",
+              display: "flex", justifyContent: paid ? "flex-end" : "flex-start",
+              transition: "background .15s ease",
+            }}
+          >
+            <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#fff" }} />
+          </button>
         </div>
 
         <div className="mt-16">
@@ -314,6 +379,27 @@ const BillsScreen = ({ onBack }) => {
   const payBill = (bill) => updateBill(bill.id, { paid: true, status: "paid" });
   const totalDue = bills.filter(b => !b.paid).reduce((s, b) => s + b.amount, 0);
 
+  const monthGroups = React.useMemo(() => {
+    const map = new Map();
+    filtered.forEach(b => {
+      const k = monthKey(b.dueDate);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(b);
+    });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => {
+        if (a === "no-date") return 1;
+        if (b === "no-date") return -1;
+        return b.localeCompare(a);
+      })
+      .map(([key, items]) => ({
+        key,
+        label: monthLabel(key),
+        items: items.slice().sort((x, y) => (y.dueDate || "").localeCompare(x.dueDate || "")),
+        total: items.reduce((s, b) => s + (b.amount || 0), 0),
+      }));
+  }, [filtered]);
+
   return (
     <div className="scroll">
       <TopBar
@@ -358,11 +444,19 @@ const BillsScreen = ({ onBack }) => {
             <div style={{ fontSize: 14, fontWeight: 700 }}>+ הוסף חשבון</div>
           </button>
         ) : (
-          <div className="card" style={{ padding: "4px 18px" }}>
-            {filtered.map(b => (
-              <BillRow key={b.id} bill={b} people={people} onPay={payBill} onPick={setSelected} />
-            ))}
-          </div>
+          monthGroups.map(group => (
+            <div key={group.key}>
+              <div className="hstack between" style={{ padding: "4px 4px 8px" }}>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>{group.label}</div>
+                <div className="small num muted">{shek(group.total, 0)}</div>
+              </div>
+              <div className="card" style={{ padding: "4px 18px" }}>
+                {group.items.map(b => (
+                  <BillRow key={b.id} bill={b} people={people} onPay={payBill} onPick={setSelected} />
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </div>
 
