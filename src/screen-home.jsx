@@ -252,7 +252,15 @@ const AIInput = ({ onSubmit }) => {
 const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onAISubmit }) => {
   const { state } = useAppState();
   const { expenses, bills, grocery, budget, people } = state;
-  const totalSpent = expenses.reduce((s, e) => s + e.amount, 0);
+
+  const now = new Date();
+  const thisMonthExpenses = expenses.filter(e => {
+    if (!e.createdAt) return true;
+    const d = new Date(e.createdAt);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+
+  const totalSpent = thisMonthExpenses.reduce((s, e) => s + e.amount, 0);
   const balance = computeBalance(expenses, people);
   const you = people.find(p => p.isYou) || people[0];
 
@@ -288,7 +296,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
         <AIInput onSubmit={onAISubmit} />
         <OverdueBills bills={bills} people={people} onOpen={openBills} />
         <BalanceCard balance={balance} people={people} onSettle={() => nav("household")} />
-        <SpendOverview expenses={expenses} budget={budget} onOpen={openHistory} />
+        <SpendOverview expenses={thisMonthExpenses} budget={budget} onOpen={openHistory} />
         <GroceryPreview items={grocery} people={people} onOpen={openGrocery} onAdd={openGrocery} />
         <RecentTransactions expenses={expenses} people={people} limit={3} onSeeAll={openHistory} />
       </div>

@@ -379,6 +379,9 @@ const BillsScreen = ({ onBack }) => {
   const payBill = (bill) => updateBill(bill.id, { paid: true, status: "paid" });
   const totalDue = bills.filter(b => !b.paid).reduce((s, b) => s + b.amount, 0);
 
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
   const monthGroups = React.useMemo(() => {
     const map = new Map();
     filtered.forEach(b => {
@@ -441,7 +444,15 @@ const BillsScreen = ({ onBack }) => {
           monthGroups.map(group => (
             <div key={group.key}>
               <div className="hstack between" style={{ padding: "4px 4px 8px" }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{group.label}</div>
+                <div className="hstack gap-8" style={{ alignItems: "center" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{group.label}</div>
+                  {group.key === currentMonthKey && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99,
+                      background: "var(--ink)", color: "#fff",
+                    }}>החודש</span>
+                  )}
+                </div>
                 <div className="small num muted">{shek(group.total, 0)}</div>
               </div>
               <div className="card" style={{ padding: "4px 18px" }}>
