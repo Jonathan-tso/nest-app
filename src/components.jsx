@@ -205,4 +205,26 @@ const BarChart = ({ data, height = 120, color = "#0E0E0E" }) => {
 };
 
 // Export to window
-Object.assign(window, { Icon, Avatar, AvatarStack, StatusBar, TopBar, NestLogo, Donut, Sparkline, BarChart });
+// ====== Inline name editor ======
+// Auto-focused input with Enter-to-submit, Escape/empty-blur to cancel.
+// Reused for inline-creating and inline-renaming named entities.
+const InlineNameInput = ({
+  value, onChange, onSubmit, onCancel,
+  className, style, placeholder,
+}) => (
+  <input
+    autoFocus
+    value={value}
+    onChange={e => onChange(e.target.value)}
+    onKeyDown={e => {
+      if (e.key === "Enter") onSubmit();
+      else if (e.key === "Escape") onCancel();
+    }}
+    onBlur={() => { if (!(value || "").trim()) onCancel(); }}
+    className={className}
+    style={style}
+    placeholder={placeholder}
+  />
+);
+
+Object.assign(window, { Icon, Avatar, AvatarStack, StatusBar, TopBar, NestLogo, Donut, Sparkline, BarChart, InlineNameInput });
