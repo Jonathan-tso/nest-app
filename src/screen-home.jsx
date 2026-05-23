@@ -275,7 +275,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
           <div>
             <div className="small muted">היי {you?.name || ""}</div>
             <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2, letterSpacing: "-0.02em" }}>
-              {totalSpent > 0 ? "מבט על החודש" : "נתחיל"}
+              {"מבט מהיר על " + new Date().toLocaleDateString("he-IL", { month: "long" })}
             </div>
           </div>
           <div style={{ textAlign: "left" }}>
