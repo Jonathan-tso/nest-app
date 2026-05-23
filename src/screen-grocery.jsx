@@ -78,8 +78,8 @@ const GroceryItem = ({ item, people, onToggle, onDelete }) => {
           </div>
         </div>
         <div className="hstack gap-8">
-          {item.addedBy === "ai" && <span className="ai-chip">AI</span>}
-          {item.addedBy !== "ai" && author && (
+          {!item.addedBy && <span className="ai-chip">AI</span>}
+          {item.addedBy && author && (
             <Avatar name={author.name} color={author.color} size="sm" />
           )}
         </div>

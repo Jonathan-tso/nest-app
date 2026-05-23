@@ -1,52 +1,58 @@
 /* global hebrewDate */
-// Claude API client + tool definitions, parameterised by current household members.
+// Claude API client + tool definitions. Tools return DB-ready rows;
+// the store performs the actual writes against Supabase.
 
 const CATEGORY_IDS = ["groceries","rent","electricity","water","internet","tv","transport","gas","dining","health","household"];
 const SECTION_IDS = ["produce","dairy","bakery","pantry","household"];
 
 const buildTools = (people) => {
-  const peopleIds = (people && people.length ? people : [{ id: "you" }]).map(p => p.id);
+  const peopleIds = (people && people.length ? people : []).map(p => p.id);
+  // If no people yet, leave enum loose (just string) so the model can still be called.
+  const personSchema = peopleIds.length
+    ? { type: "string", enum: peopleIds }
+    : { type: "string" };
+
   return [
     {
       name: "add_expense",
-      description: "הוסף הוצאה חדשה. השתמש כאשר המשתמש מתאר משהו שכבר הוצאו עליו כסף.",
+      description: "הוסף הוצאה חדשה. השתמש כשהמשתמש מתאר משהו שכבר הוצאו עליו כסף.",
       input_schema: {
         type: "object",
         properties: {
           label: { type: "string", description: "תיאור קצר. לדוגמה: 'שופרסל', 'קפה'." },
-          amount: { type: "number", description: "סכום בשקלים, מספר חיובי." },
+          amount: { type: "number" },
           category: { type: "string", enum: CATEGORY_IDS },
-          paid_by: { type: "string", enum: peopleIds, description: "id של מי ששילם. ברירת מחדל: you" },
-          split: { type: "number", enum: [50, 100, 0], description: "50=חצי-חצי, 100=על מישהו אחר, 0=אישי. ברירת מחדל 50" },
-          date: { type: "string", description: "תאריך בעברית. ברירת מחדל: היום" },
-          recurring: { type: "boolean", description: "האם זאת הוצאה חוזרת" }
+          paid_by: { ...personSchema, description: "uuid של מי ששילם. ברירת מחדל: המשתמש הנוכחי" },
+          split: { type: "number", enum: [50, 100, 0], description: "50=חצי-חצי, 100=על מישהו אחר, 0=אישי" },
+          date: { type: "string" },
+          recurring: { type: "boolean" }
         },
         required: ["label", "amount", "category"]
       }
     },
     {
       name: "add_bill",
-      description: "הוסף חשבון לתשלום עתידי (חוזר או חד פעמי).",
+      description: "הוסף חשבון לתשלום עתידי.",
       input_schema: {
         type: "object",
         properties: {
           label: { type: "string" },
           amount: { type: "number" },
           category: { type: "string", enum: CATEGORY_IDS },
-          due_date: { type: "string", description: "תאריך התשלום, בעברית" },
+          due_date: { type: "string" },
           recurring: { type: "string", description: "חודשי / דו-חודשי / שנתי. ריק אם חד-פעמי." },
-          assignee: { type: "string", enum: peopleIds, description: "id של האחראי לתשלום. ברירת מחדל: you" }
+          assignee: { ...personSchema, description: "uuid של האחראי. ברירת מחדל: המשתמש הנוכחי" }
         },
         required: ["label", "amount", "category"]
       }
     },
     {
       name: "mark_bill_paid",
-      description: "סמן חשבון כשולם, או החזר ללא שולם אם paid=false.",
+      description: "סמן חשבון כשולם או החזר ללא שולם.",
       input_schema: {
         type: "object",
         properties: {
-          bill_id: { type: "string" },
+          bill_id: { type: "string", description: "uuid של החשבון" },
           paid: { type: "boolean" }
         },
         required: ["bill_id"]
@@ -59,7 +65,7 @@ const buildTools = (people) => {
         type: "object",
         properties: {
           name: { type: "string" },
-          qty: { type: "string", description: "לדוגמה: '1 ק״ג', '2', 'חבילה'." },
+          qty: { type: "string" },
           section: { type: "string", enum: SECTION_IDS }
         },
         required: ["name"]
@@ -67,45 +73,48 @@ const buildTools = (people) => {
     },
     {
       name: "get_state",
-      description: "החזר את כל הנתונים: הוצאות, חשבונות, קניות, סיכומים, חברי הבית. השתמש כדי לענות על שאלות.",
+      description: "החזר את כל הנתונים: הוצאות, חשבונות, קניות, סיכומים, חברי הבית.",
       input_schema: { type: "object", properties: {} }
     }
   ];
 };
 
+// Pure tool runner — returns { result, next } where result includes a `row`
+// that the store will persist to Supabase.
 const executeTool = (name, input, state) => {
+  const me = state.userId;
   switch (name) {
     case "add_expense": {
-      const exp = {
-        id: `e-${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
+      const row = {
         label: input.label,
         amount: Number(input.amount) || 0,
         category: input.category,
-        paidBy: input.paid_by || "you",
+        paidBy: input.paid_by || me,
         split: input.split ?? 50,
         date: input.date || hebrewDate(),
         recurring: !!input.recurring,
       };
+      const optimistic = { ...row, id: `tmp-${Date.now()}` };
       return {
-        result: { ok: true, id: exp.id, summary: `נוספה הוצאה: ${exp.label} (₪${exp.amount})` },
-        next: { ...state, expenses: [exp, ...state.expenses] },
+        result: { ok: true, row, summary: `נוספה הוצאה: ${row.label} (₪${row.amount})` },
+        next: { ...state, expenses: [optimistic, ...state.expenses] },
       };
     }
     case "add_bill": {
-      const bill = {
-        id: `b-${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
+      const row = {
         label: input.label,
         amount: Number(input.amount) || 0,
         category: input.category,
         dueDate: input.due_date || "",
         recurring: input.recurring || null,
-        assignee: input.assignee || "you",
+        assignee: input.assignee || me,
         status: "upcoming",
         paid: false,
       };
+      const optimistic = { ...row, id: `tmp-${Date.now()}` };
       return {
-        result: { ok: true, id: bill.id, summary: `נוסף חשבון: ${bill.label} (₪${bill.amount})` },
-        next: { ...state, bills: [bill, ...state.bills] },
+        result: { ok: true, row, summary: `נוסף חשבון: ${row.label} (₪${row.amount})` },
+        next: { ...state, bills: [optimistic, ...state.bills] },
       };
     }
     case "mark_bill_paid": {
@@ -114,46 +123,43 @@ const executeTool = (name, input, state) => {
       const found = state.bills.find(b => b.id === id);
       if (!found) return { result: { ok: false, error: `חשבון ${id} לא נמצא` }, next: state };
       const bills = state.bills.map(b => b.id === id ? {
-        ...b,
-        paid,
-        status: paid ? "paid" : (b.status === "overdue" ? "overdue" : "upcoming"),
+        ...b, paid, status: paid ? "paid" : (b.status === "overdue" ? "overdue" : "upcoming"),
       } : b);
       return {
-        result: { ok: true, summary: paid ? `סומן כשולם: ${found.label}` : `הוחזר ללא שולם: ${found.label}` },
+        result: { ok: true, id, paid, summary: paid ? `סומן כשולם: ${found.label}` : `הוחזר ללא שולם: ${found.label}` },
         next: { ...state, bills },
       };
     }
     case "add_grocery_item": {
-      const item = {
-        id: `g-${Date.now()}-${Math.random().toString(36).slice(2,5)}`,
+      const row = {
         name: input.name,
         qty: input.qty || "1",
         section: input.section || "pantry",
         addedBy: "ai",
         checked: false,
       };
+      const optimistic = { ...row, id: `tmp-${Date.now()}`, addedBy: null };
       return {
-        result: { ok: true, summary: `נוסף לקניות: ${item.name}` },
-        next: { ...state, grocery: [item, ...state.grocery] },
+        result: { ok: true, row, summary: `נוסף לקניות: ${row.name}` },
+        next: { ...state, grocery: [optimistic, ...state.grocery] },
       };
     }
     case "get_state": {
       const totalSpent = state.expenses.reduce((s,e) => s + (e.amount || 0), 0);
       const byCat = {};
       state.expenses.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
-      // Compute balance: per person (paid - fair_share)
       const balances = {};
       (state.people || []).forEach(p => { balances[p.id] = { name: p.name, paid: 0, share: 0 }; });
       state.expenses.forEach(e => {
-        if (!balances[e.paidBy]) balances[e.paidBy] = { name: "(orphan)", paid: 0, share: 0 };
+        if (!balances[e.paidBy]) balances[e.paidBy] = { name: "(unknown)", paid: 0, share: 0 };
         balances[e.paidBy].paid += e.amount;
         if (e.split === 50) {
-          (state.people || []).forEach(p => { if (balances[p.id]) balances[p.id].share += e.amount / (state.people.length || 1); });
+          const n = Math.max((state.people || []).length, 1);
+          (state.people || []).forEach(p => { if (balances[p.id]) balances[p.id].share += e.amount / n; });
         } else if (e.split === 100) {
-          // someone else owes the full amount; we don't know who without more info
-          (state.people || []).forEach(p => {
-            if (p.id !== e.paidBy && balances[p.id]) balances[p.id].share += e.amount / Math.max(state.people.length - 1, 1);
-          });
+          const others = (state.people || []).filter(p => p.id !== e.paidBy);
+          const n = Math.max(others.length, 1);
+          others.forEach(p => { if (balances[p.id]) balances[p.id].share += e.amount / n; });
         } else if (e.split === 0) {
           if (balances[e.paidBy]) balances[e.paidBy].share += e.amount;
         }
@@ -165,6 +171,7 @@ const executeTool = (name, input, state) => {
       return {
         result: {
           household_members: state.people || [],
+          current_user_id: state.userId,
           total_spent: totalSpent,
           budget: state.budget,
           by_category: byCat,
@@ -186,14 +193,15 @@ const executeTool = (name, input, state) => {
 };
 
 const buildSystemPrompt = (people) => {
-  const list = (people || []).map(p => `${p.id}=${p.name}${p.owner ? " (המשתמש עצמו)" : ""}`).join(", ") || "you=המשתמש";
+  const list = (people || []).map(p =>
+    `${p.id}=${p.name}${p.isYou ? " (המשתמש המדבר)" : ""}${p.owner ? " [owner]" : ""}`
+  ).join(", ") || "(אין חברי בית)";
   return `אתה Nest AI — עוזר ניהול הוצאות הבית.
 
-חברי הבית הפעילים: ${list}.
-המשתמש שמדבר איתך הוא ה-owner (id="you"). פנה אליו בלשון זכר.
+חברי הבית הפעילים (uuid → שם): ${list}.
 
 תפקיד:
-- כשהמשתמש מתאר הוצאה — הוסף אותה דרך add_expense.
+- כשהמשתמש מתאר הוצאה — קרא ל-add_expense.
 - כשהוא מזכיר חשבון לתשלום עתידי — add_bill.
 - כשהוא מבקש להוסיף לקניות — add_grocery_item.
 - כשהוא שואל "כמה הוצאתי", "מה לשלם", "מה המאזן" — קרא get_state ותענה לפי הנתונים האמיתיים.
@@ -203,13 +211,13 @@ const buildSystemPrompt = (people) => {
 נחש קטגוריה לפי הקשר (קפה→dining, סופר→groceries, בזק→internet וכו').
 
 הנחיות:
-- דבר עברית בלבד, בלשון זכר אל המשתמש.
-- תמציתי. משפט-שניים. ידידותי. בלי פירוט מיותר.
+- דבר עברית בלבד, בלשון זכר אל המשתמש (אלא אם השם רומז אחרת).
+- תמציתי. משפט-שניים. ידידותי.
 - אחרי כלי, אשר בקצרה: "נוסף ₪40 על קפה" — לא יותר.
-- אל תכפיל פעולות. הוצאה אחת = קריאה אחת ל-add_expense.
-- "אני" / "שלי" = id="you". שמות אחרים → התאם ל-id הנכון מ-${list}.
-- אם המשתמש לא מציין סכום או פרטים חסרים — שאל שאלה קצרה אחת.
-- אל תמציא נתונים. אם אין הוצאות, אמור "אין הוצאות רשומות".`;
+- אל תכפיל פעולות.
+- "אני"/"שלי" = id של המשתמש המדבר. שמות אחרים → התאם ל-id מתוך הרשימה.
+- אם חסר סכום או פרט — שאל שאלה קצרה אחת.
+- אל תמציא נתונים.`;
 };
 
 async function callClaude({ apiKey, model = "claude-haiku-4-5", messages, people = [], maxTokens = 1024 }) {

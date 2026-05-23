@@ -5,19 +5,21 @@ const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL
 const AddExpenseSheet = ({ open, onClose }) => {
   const { state, addExpense } = useAppState();
   const people = state.people;
+  const me = people.find(p => p.isYou);
   const [amount, setAmount] = React.useState("");
   const [category, setCategory] = React.useState("groceries");
-  const [paidBy, setPaidBy] = React.useState("you");
+  const [paidBy, setPaidBy] = React.useState(me?.id || "");
   const [split, setSplit] = React.useState(50);
   const [recurring, setRecurring] = React.useState(false);
   const [label, setLabel] = React.useState("");
 
   React.useEffect(() => {
     if (open) {
-      setAmount(""); setCategory("groceries"); setPaidBy("you");
+      setAmount(""); setCategory("groceries");
+      setPaidBy(me?.id || "");
       setSplit(50); setRecurring(false); setLabel("");
     }
-  }, [open]);
+  }, [open, me?.id]);
 
   const key = (k) => {
     if (k === "back") setAmount(prev => prev.slice(0, -1));

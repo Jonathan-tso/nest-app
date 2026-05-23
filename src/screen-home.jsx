@@ -6,14 +6,10 @@ const { useState } = React;
 const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
 const computeBalance = (expenses, people) => {
-  const you = people.find(p => p.owner) || people[0];
+  const you = people.find(p => p.isYou) || people[0];
   if (!you || people.length < 2) return 0;
-  let youPaid = 0, othersPaid = 0;
-  expenses.forEach(e => {
-    if (e.paidBy === you.id) youPaid += e.amount;
-    else othersPaid += e.amount;
-  });
-  // fair share if 50/50 across household members
+  let youPaid = 0;
+  expenses.forEach(e => { if (e.paidBy === you.id) youPaid += e.amount; });
   const youShare = expenses.reduce((s, e) => {
     if (e.split === 50) return s + e.amount / Math.max(people.length, 1);
     if (e.split === 100 && e.paidBy !== you.id) return s + e.amount / Math.max(people.length - 1, 1);
@@ -95,8 +91,8 @@ const SpendOverview = ({ expenses, budget }) => {
 const BalanceCard = ({ balance, people, onSettle }) => {
   if (Math.abs(balance) < 0.5) return null;
   const youOwe = balance < 0;
-  const others = people.filter(p => !p.owner);
-  const counterpart = others[0]; // simple: first non-owner
+  const others = people.filter(p => !p.isYou);
+  const counterpart = others[0];
   if (!counterpart) return null;
   return (
     <div className="card" style={{ padding: 18, background: "var(--cream-soft)" }}>
@@ -165,7 +161,7 @@ const GroceryPreview = ({ items, people, onOpen, onAdd }) => {
                 <span style={{ fontSize: 14, fontWeight: 500 }}>{item.name}</span>
                 {item.qty && <span className="small muted">· {item.qty}</span>}
               </div>
-              <span className="tiny">{item.addedBy === "ai" ? "AI" : author?.short || author?.name || ""}</span>
+              <span className="tiny">{!item.addedBy ? "AI" : author?.short || author?.name || ""}</span>
             </div>
           );
         })}
@@ -256,7 +252,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
   const { expenses, bills, grocery, budget, people } = state;
   const totalSpent = expenses.reduce((s, e) => s + e.amount, 0);
   const balance = computeBalance(expenses, people);
-  const you = people.find(p => p.owner) || people[0];
+  const you = people.find(p => p.isYou) || people[0];
 
   return (
     <div className="scroll">
