@@ -96,7 +96,7 @@ const AddExpenseSheet = ({ open, onClose, onSave }) => {
         </div>
 
         <div className="mt-16">
-          <div className="field-label">שילם.ה</div>
+          <div className="field-label">שילם</div>
           <div className="hstack gap-8">
             {PEOPLE.map(p => (
               <button
@@ -116,7 +116,7 @@ const AddExpenseSheet = ({ open, onClose, onSave }) => {
           <div className="field-label">חלוקה</div>
           <div className="segment">
             <div className={`seg ${split === 50 ? "active" : ""}`} onClick={() => setSplit(50)}>חצי-חצי</div>
-            <div className={`seg ${split === 100 ? "active" : ""}`} onClick={() => setSplit(100)}>על השנייה</div>
+            <div className={`seg ${split === 100 ? "active" : ""}`} onClick={() => setSplit(100)}>על הצד השני</div>
             <div className={`seg ${split === 0 ? "active" : ""}`} onClick={() => setSplit(0)}>אישי</div>
           </div>
         </div>
@@ -160,7 +160,7 @@ const AddExpenseSheet = ({ open, onClose, onSave }) => {
           disabled={!canSave}
           style={{ marginTop: 18, opacity: canSave ? 1 : 0.4 }}
         >
-          שמרי הוצאה
+          שמור הוצאה
         </button>
       </div>
     </Sheet>

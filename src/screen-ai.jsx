@@ -1,11 +1,11 @@
-/* global React, Icon, Avatar, TopBar, Sheet, CHAT_SEED, CAT, PEOPLE, shek */
+/* global React, Icon, TopBar, Sheet, CHAT_SEED, CAT, shek */
 // AI: full-screen chat, bottom sheet, and FAB action pad
 
 const SUGGESTIONS = [
-  "הוסיפי הוצאה",
+  "הוסף הוצאה",
   "כמה הוצאנו על אוכל החודש?",
   "מה צריך לשלם השבוע?",
-  "כמה אני חייבת לנועה?",
+  "כמה אני חייב לנועה?",
 ];
 
 const AIChat = ({ onBack }) => {
@@ -34,49 +34,41 @@ const AIChat = ({ onBack }) => {
   const mockReply = (q) => {
     const id = `m-${Date.now()}`;
     if (/חייב|מאזן|חוב/.test(q)) {
-      return { id, from: "ai", text: "את חייבת לנועה ₪612. רוצה לסגור חשבון עכשיו?" };
+      return { id, from: "ai", text: "אתה חייב לנועה ₪612. רוצה לסגור חשבון?" };
     }
     if (/אוכל|מסעדה|קניות/.test(q)) {
       return {
         id, from: "ai",
-        text: "הוצאתן ₪491 על קניות ו-₪164 על מסעדות החודש. סה״כ ₪655 על מזון — 22% מההוצאות.",
+        text: "הוצאת ₪491 על קניות ו-₪164 על מסעדות החודש.",
         card: { label: "קניות + מסעדות", amount: 655, category: "groceries" },
       };
     }
     if (/לשלם|חשבון|מועד/.test(q)) {
-      return {
-        id, from: "ai",
-        text: "השבוע מחכים שניים: נטפליקס בפיגור (₪54.90, נועה) וחשמל ב-28 במאי (₪380, נועה).",
-      };
+      return { id, from: "ai", text: "השבוע: נטפליקס בפיגור (₪54.90) וחשמל ב-28 במאי (₪380)." };
     }
-    // Treat as expense entry
     const amtMatch = q.match(/(\d+(?:[.,]\d+)?)/);
     const amount = amtMatch ? parseFloat(amtMatch[1].replace(",", ".")) : null;
     if (amount) {
       const category = /קפה|מסעד|אוכל/.test(q) ? "dining" : /קני|סופר|שופרסל/.test(q) ? "groceries" : "household";
       return {
         id, from: "ai",
-        text: `הוספתי הוצאה של ${shek(amount, 2)} בקטגוריית "${CAT[category].label}". רוצה לחלק עם נועה?`,
+        text: `נוספה הוצאה של ${shek(amount, 2)} ב-"${CAT[category].label}". לחלק עם נועה?`,
         card: { label: q.replace(/\d+(?:[.,]\d+)?/, "").trim() || CAT[category].label, amount, category },
       };
     }
-    return { id, from: "ai", text: "לא בטוחה שהבנתי — את יכולה לכתוב סכום, להעלות קבלה, או לשאול אותי על הוצאות החודש." };
+    return { id, from: "ai", text: "לא הבנתי. אפשר לכתוב סכום, להעלות קבלה, או לשאול על הוצאות." };
   };
 
   return (
     <div className="scroll" style={{ display: "flex", flexDirection: "column", padding: 0 }}>
       <div style={{ flexShrink: 0 }}>
-        <TopBar
-          title=""
-          onBack={onBack}
-          trailing={<Icon name="more" size={20} />}
-        />
+        <TopBar title="" onBack={onBack} trailing={<Icon name="more" size={20} />} />
         <div className="px-22" style={{ paddingBottom: 12 }}>
           <div className="hstack gap-8" style={{ marginBottom: 4 }}>
             <span className="ai-dot" />
             <span className="ai-text" style={{ fontSize: 13 }}>Nest AI</span>
           </div>
-          <div className="h2">היי מאיה, איך אפשר לעזור?</div>
+          <div className="h2">איך אפשר לעזור?</div>
         </div>
       </div>
 
@@ -140,7 +132,7 @@ const AIChat = ({ onBack }) => {
               value={text}
               onChange={e => setText(e.target.value)}
               onKeyDown={e => e.key === "Enter" && send()}
-              placeholder="כתבי משהו…"
+              placeholder="כתוב משהו…"
             />
             <button className="ai-input-icon" title="הודעה קולית"><Icon name="mic" size={20} /></button>
             <button className="ai-send" onClick={() => send()}><Icon name="send" size={16} /></button>
@@ -165,8 +157,7 @@ const AISheet = ({ open, onClose }) => {
           <span className="ai-dot" />
           <span className="ai-text" style={{ fontSize: 13 }}>Nest AI</span>
         </div>
-        <div className="h2 mt-8">תספרי לי על מה הוצאת</div>
-        <div className="small muted mt-4">אפשר להעלות קבלה, להקליט הודעה או לכתוב</div>
+        <div className="h2 mt-8">ספר לי על מה הוצאת</div>
         <div className="mt-16">
           <textarea
             value={text}
@@ -179,9 +170,8 @@ const AISheet = ({ open, onClose }) => {
         <div className="hstack gap-8" style={{ marginTop: 12 }}>
           <button className="btn icon-only ghost" style={{ width: 48, height: 48 }}><Icon name="camera" size={20} /></button>
           <button className="btn icon-only ghost" style={{ width: 48, height: 48 }}><Icon name="mic" size={20} /></button>
-          <button className="btn icon-only ghost" style={{ width: 48, height: 48 }}><Icon name="paperclip" size={20} /></button>
           <button className="btn" style={{ flex: 1 }} onClick={submit}>
-            <Icon name="send" size={16} /> שלחי
+            <Icon name="send" size={16} /> שלח
           </button>
         </div>
       </div>
@@ -191,12 +181,10 @@ const AISheet = ({ open, onClose }) => {
 
 const AIActionPad = ({ open, onClose }) => {
   const actions = [
-    { id: "scan",  label: "צילום קבלה",   icon: "camera",    color: "mint" },
-    { id: "voice", label: "הקלטה",         icon: "mic",       color: "lavender" },
-    { id: "type",  label: "הקלדה",         icon: "pencil",    color: "butter" },
-    { id: "split", label: "חלוקה",         icon: "user",      color: "pink" },
-    { id: "bill",  label: "חשבון חדש",     icon: "receipt",   color: "sky" },
-    { id: "ask",   label: "שאלי שאלה",    icon: "sparkles",  color: "coral" },
+    { id: "scan",  label: "צילום קבלה", icon: "camera",   color: "mint" },
+    { id: "voice", label: "הקלטה",       icon: "mic",      color: "lavender" },
+    { id: "type",  label: "הקלדה",       icon: "pencil",   color: "butter" },
+    { id: "bill",  label: "חשבון חדש",   icon: "receipt",  color: "sky" },
   ];
   return (
     <Sheet open={open} onClose={onClose}>
@@ -205,8 +193,8 @@ const AIActionPad = ({ open, onClose }) => {
           <span className="ai-dot" />
           <span className="ai-text" style={{ fontSize: 13 }}>Nest AI</span>
         </div>
-        <div className="h2 mt-8">מה רוצה להוסיף?</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 16 }}>
+        <div className="h2 mt-8">מה להוסיף?</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
           {actions.map(a => (
             <button
               key={a.id}
@@ -215,17 +203,17 @@ const AIActionPad = ({ open, onClose }) => {
                 background: "var(--paper)",
                 border: "1px solid var(--line)",
                 borderRadius: 18,
-                padding: 14,
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+                padding: 16,
+                display: "flex", alignItems: "center", gap: 12,
                 cursor: "pointer", fontFamily: "inherit",
               }}
             >
               <div className={`bg-${a.color}`} style={{
-                width: 44, height: 44, borderRadius: 14, display: "grid", placeItems: "center",
+                width: 40, height: 40, borderRadius: 12, display: "grid", placeItems: "center",
               }}>
                 <Icon name={a.icon} size={20} color="#0E0E0E" />
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700 }}>{a.label}</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{a.label}</span>
             </button>
           ))}
         </div>

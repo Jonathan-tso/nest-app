@@ -143,10 +143,10 @@ const GroceryScreen = ({ onBack, onCheckout }) => {
         <div className="card" style={{ padding: 18, background: "var(--mint)", border: "none" }}>
           <div className="hstack between">
             <div>
-              <div className="tiny" style={{ color: "var(--ink)", opacity: 0.7 }}>רשימת קניות פעילה</div>
+              <div className="tiny" style={{ color: "var(--ink)", opacity: 0.7 }}>רשימת קניות</div>
               <div className="h2" style={{ marginTop: 4 }}>{pending} פריטים</div>
               <div className="small" style={{ marginTop: 2, color: "var(--ink)", opacity: 0.7 }}>
-                {done} סומנו · נועה ומאיה
+                {done} סומנו
               </div>
             </div>
             <button className="btn sm" style={{ width: "auto" }} onClick={onCheckout}>
@@ -162,9 +162,9 @@ const GroceryScreen = ({ onBack, onCheckout }) => {
               value={text}
               onChange={e => setText(e.target.value)}
               onKeyDown={e => e.key === "Enter" && add()}
-              placeholder="הוסיפי פריט או ספרי ל-AI…"
+              placeholder="הוסף פריט או ספר ל-AI…"
             />
-            <button className="ai-send" onClick={add} title="הוסיפי">
+            <button className="ai-send" onClick={add} title="הוסף">
               <Icon name="plus" size={16} />
             </button>
           </div>
@@ -174,7 +174,7 @@ const GroceryScreen = ({ onBack, onCheckout }) => {
       <div style={{ marginTop: 12 }}>
         {grouped.length === 0 ? (
           <div className="small muted" style={{ padding: "40px 22px", textAlign: "center" }}>
-            {hideChecked ? "כל הפריטים סומנו 🎉" : "אין פריטים. הוסיפי משהו"}
+            {hideChecked ? "כל הפריטים סומנו" : "אין פריטים. הוסף משהו"}
           </div>
         ) : grouped.map(section => (
           <div key={section.id} style={{ marginBottom: 16 }}>

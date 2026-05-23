@@ -26,14 +26,14 @@ const NotificationsScreen = ({ onBack }) => {
               className="chip outline"
               onClick={markAll}
               style={{ fontFamily: "inherit" }}
-            >סמני הכל</button>
+            >סמן הכל</button>
           ) : null
         }
       />
       <div className="px-22">
         {unread > 0 && (
           <div className="small muted" style={{ marginBottom: 10 }}>
-            יש לך {unread} התראות חדשות
+            {unread} חדשות
           </div>
         )}
         <div className="card" style={{ padding: "4px 18px" }}>
