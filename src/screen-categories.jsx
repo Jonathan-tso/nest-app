@@ -1,9 +1,11 @@
-/* global React, Icon, TopBar, CATEGORIES, EXPENSES_MAY, shek */
-// Categories — grid of all categories with totals
+/* global React, Icon, TopBar, useAppState, CATEGORIES */
+
+const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
 const CategoriesScreen = ({ onBack, onPick }) => {
+  const { state } = useAppState();
   const totals = {};
-  EXPENSES_MAY.forEach(e => { totals[e.category] = (totals[e.category] || 0) + e.amount; });
+  state.expenses.forEach(e => { totals[e.category] = (totals[e.category] || 0) + e.amount; });
   const grandTotal = Object.values(totals).reduce((s, v) => s + v, 0);
 
   return (
@@ -11,15 +13,14 @@ const CategoriesScreen = ({ onBack, onPick }) => {
       <TopBar title="קטגוריות" onBack={onBack} />
       <div className="px-22 vstack gap-12">
         <div className="card" style={{ padding: 18, background: "var(--cream)" }}>
-          <div className="tiny">סה״כ הוצאות במאי</div>
+          <div className="tiny">סך הכל</div>
           <div className="h1 num" style={{ marginTop: 4 }}>{shek(grandTotal, 0)}</div>
-          <div className="small muted" style={{ marginTop: 2 }}>{CATEGORIES.length} קטגוריות פעילות</div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {CATEGORIES.map(c => {
             const v = totals[c.id] || 0;
-            const pct = v ? Math.round((v / grandTotal) * 100) : 0;
+            const pct = grandTotal > 0 ? Math.round((v / grandTotal) * 100) : 0;
             return (
               <button
                 key={c.id}
@@ -28,6 +29,7 @@ const CategoriesScreen = ({ onBack, onPick }) => {
                 style={{
                   padding: 14, textAlign: "right", cursor: "pointer", border: "1px solid var(--line)",
                   background: "var(--paper)", fontFamily: "inherit",
+                  opacity: v === 0 ? 0.5 : 1,
                 }}
               >
                 <div className="hstack between mb-12">
