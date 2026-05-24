@@ -321,15 +321,17 @@ const AppStateProvider = ({ children }) => {
     if (!supabase || !householdId) return null;
     const trimmed = (name || "").trim();
     if (!trimmed) throw new Error("שם רשימה חובה");
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("grocery_lists")
-      .insert({
-        household_id: householdId,
-        name: trimmed,
-        created_by: userId,
-        member_ids: userId ? [userId] : [],
-      })
+      .insert({ household_id: householdId, name: trimmed, created_by: userId, member_ids: userId ? [userId] : [] })
       .select().single();
+    if (error?.message?.includes("member_ids")) {
+      // Column not yet added — run migration-grocery-list-members.sql in Supabase
+      ({ data, error } = await supabase
+        .from("grocery_lists")
+        .insert({ household_id: householdId, name: trimmed, created_by: userId })
+        .select().single());
+    }
     if (error) throw error;
     const list = mapList(data);
     setGroceryLists(prev => prev.some(l => l.id === list.id) ? prev : [...prev, list]);
