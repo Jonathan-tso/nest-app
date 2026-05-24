@@ -165,7 +165,7 @@ const AIChat = ({ onBack }) => {
 
   return (
     <div className="scroll" style={{ display: "flex", flexDirection: "column", padding: 0 }}>
-      <div style={{ flexShrink: 0 }}>
+      <div style={{ flexShrink: 0, background: "linear-gradient(to bottom, var(--paper) 70%, transparent)" }}>
         <TopBar
           title=""
           onBack={onBack}

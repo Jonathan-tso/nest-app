@@ -226,7 +226,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: linear-gradient(to bottom, var(--paper) 55%, transparent);
+  background: linear-gradient(to bottom, var(--paper) 70%, transparent);
 }
 .topbar .back {
   width: 38px; height: 38px; display: grid; place-items: center;
