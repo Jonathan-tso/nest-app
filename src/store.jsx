@@ -50,6 +50,13 @@ const mapList = (r) => ({
   memberIds: Array.isArray(r.member_ids) ? r.member_ids : [],
 });
 const mapChat = (r) => ({ role: r.role, content: r.content });
+const mapInsight = (r) => ({
+  id: r.id,
+  title: r.title,
+  body: r.body || "",
+  createdAt: r.created_at || null,
+  expiresAt: r.expires_at || null,
+});
 
 const AppStateProvider = ({ children }) => {
   const supabase = window.supabaseClient;
@@ -65,6 +72,7 @@ const AppStateProvider = ({ children }) => {
   const [people, setPeople] = React.useState([]);
   const [chat, setChat] = React.useState([]);
   const [settings, setSettings] = React.useState({ apiKey: window.BASE44_SUPERAGENT_API_KEY || "enabled", model: "claude-haiku-4-5", budget: 8200 });
+  const [insights, setInsights] = React.useState([]);
   const [pending, setPending] = React.useState(false);
   const [hydrating, setHydrating] = React.useState(true);
 
@@ -108,13 +116,14 @@ const AppStateProvider = ({ children }) => {
     setHydrating(true);
 
     (async () => {
-      const [expR, bilR, groR, listsR, chmR, stR] = await Promise.all([
+      const [expR, bilR, groR, listsR, chmR, stR, insR] = await Promise.all([
         supabase.from("expenses").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
         supabase.from("bills").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
         supabase.from("grocery_items").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
         supabase.from("grocery_lists").select("*").eq("household_id", householdId).order("created_at", { ascending: true }),
         supabase.from("chat_messages").select("*").eq("profile_id", userId).order("created_at", { ascending: true }),
         supabase.from("user_settings").select("*").eq("profile_id", userId).maybeSingle(),
+        supabase.from("ai_insights").select("*").eq("household_id", householdId).order("created_at", { ascending: false }).limit(10),
       ]);
       if (!alive) return;
       setExpenses((expR.data || []).map(mapExpense));
@@ -131,6 +140,7 @@ const AppStateProvider = ({ children }) => {
           budget: stR.data.budget || 8200,
         });
       }
+      setInsights((insR.data || []).map(mapInsight));
       await refetchMembers();
       setHydrating(false);
     })();
@@ -190,6 +200,17 @@ const AppStateProvider = ({ children }) => {
       .on("postgres_changes",
         { event: "*", schema: "public", table: "household_members", filter: `household_id=eq.${householdId}` },
         () => refetchMembers())
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "ai_insights", filter: `household_id=eq.${householdId}` },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setInsights(prev => prev.some(i => i.id === payload.new.id) ? prev : [mapInsight(payload.new), ...prev]);
+          } else if (payload.eventType === "UPDATE") {
+            setInsights(prev => prev.map(i => i.id === payload.new.id ? mapInsight(payload.new) : i));
+          } else if (payload.eventType === "DELETE") {
+            setInsights(prev => prev.filter(i => i.id !== payload.old.id));
+          }
+        })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -497,7 +518,7 @@ const AppStateProvider = ({ children }) => {
   const value = {
     state: {
       expenses, bills, grocery, groceryLists, selectedListId,
-      people, chat, ...settings, budget: settings.budget,
+      people, chat, insights, ...settings, budget: settings.budget,
     },
     pending, hydrating,
     addExpense, updateExpense, removeExpense,

@@ -273,6 +273,23 @@ const RecentTransactions = ({ expenses, bills, people, limit = 5, onSeeAll }) =>
   );
 };
 
+const AIInsightCard = ({ insights }) => {
+  const now = new Date();
+  const active = (insights || []).filter(i => !i.expiresAt || new Date(i.expiresAt) > now);
+  if (active.length === 0) return null;
+  const insight = active[0];
+  return (
+    <div className="card" style={{ padding: 18, background: "var(--cream-soft)", border: "none" }}>
+      <div className="hstack gap-6" style={{ marginBottom: 10, alignItems: "center" }}>
+        <span className="ai-text" style={{ fontSize: 11, letterSpacing: "0.06em" }}>NEST AI</span>
+        <span className="ai-dot" style={{ width: 8, height: 8 }} />
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.35, marginBottom: 6 }}>{insight.title}</div>
+      {insight.body && <div className="small muted" style={{ lineHeight: 1.6 }}>{insight.body}</div>}
+    </div>
+  );
+};
+
 const EmptyHomeHint = () => (
   <div className="card" style={{ padding: 20, textAlign: "center", background: "var(--cream-soft)" }}>
     <div className="hstack gap-8" style={{ justifyContent: "center", marginBottom: 8 }}>
@@ -319,7 +336,7 @@ const billMonthKey = (s) => {
 
 const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onAISubmit }) => {
   const { state } = useAppState();
-  const { expenses, bills, grocery, budget, people } = state;
+  const { expenses, bills, grocery, budget, people, insights } = state;
 
   const now = new Date();
   const nowMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -367,6 +384,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
 
       <div className="vstack gap-16 px-22">
         <AIInput onSubmit={onAISubmit} />
+        <AIInsightCard insights={insights} />
         <OverdueBills bills={bills} people={people} onOpen={openBills} />
         <BalanceCard balance={balance} people={people} onSettle={() => nav("household")} />
         <SpendOverview expenses={combinedSpending} budget={budget} onOpen={openHistory} />
