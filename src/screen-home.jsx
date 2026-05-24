@@ -199,36 +199,70 @@ const GroceryPreview = ({ items, people, onOpen, onAdd }) => {
   );
 };
 
-const RecentTransactions = ({ expenses, people, limit = 3, onSeeAll }) => {
-  const recent = expenses.slice(0, limit);
+const formatActivityDate = (iso) => {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (m) {
+    const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+    return d.toLocaleDateString("he-IL", { day: "numeric", month: "long" });
+  }
+  return iso;
+};
+
+const RecentTransactions = ({ expenses, bills, people, limit = 5, onSeeAll }) => {
+  const activities = [
+    ...expenses.map(e => ({
+      key: `exp-${e.id}`,
+      label: e.label,
+      amount: e.amount,
+      category: e.category,
+      personId: e.paidBy,
+      sortKey: e.createdAt || e.date || "",
+      dateLabel: e.createdAt ? formatActivityDate(e.createdAt.slice(0, 10)) : (e.date || ""),
+    })),
+    ...(bills || []).filter(b => b.paid).map(b => ({
+      key: `bill-${b.id}`,
+      label: b.label,
+      amount: b.amount,
+      category: b.category,
+      personId: b.assignee,
+      sortKey: b.dueDate || "",
+      dateLabel: formatActivityDate(b.dueDate),
+    })),
+  ].sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+
+  const recent = activities.slice(0, limit);
+
   return (
     <div>
       <div className="hstack between mb-12">
         <div className="h3">פעילות אחרונה</div>
-        {expenses.length > limit && (
+        {activities.length > limit && (
           <span className="small" style={{ fontWeight: 700, cursor: "pointer" }} onClick={onSeeAll}>הכל</span>
         )}
       </div>
-      {expenses.length === 0 ? (
-        <div className="card" onClick={onSeeAll} style={{ padding: 18, textAlign: "center", cursor: "pointer" }}>
-          <div className="small muted">עדיין אין הוצאות. ספר ל-AI או הוסף ידנית.</div>
+      {activities.length === 0 ? (
+        <div className="card" style={{ padding: 18, textAlign: "center" }}>
+          <div className="small muted">עדיין אין פעילות. ספר ל-AI או הוסף ידנית.</div>
         </div>
       ) : (
-        <div className="card" onClick={onSeeAll} style={{ padding: "4px 18px", cursor: "pointer" }}>
-          {recent.map(e => {
-            const c = CAT[e.category] || CAT.household;
-            const author = people.find(p => p.id === e.paidBy);
+        <div className="card" style={{ padding: "0 18px" }}>
+          {recent.map(item => {
+            const c = CAT[item.category] || CAT.household;
+            const person = people.find(p => p.id === item.personId);
+            const subtitle = [item.dateLabel, person?.name].filter(Boolean).join(" · ");
             return (
-              <div key={e.id} className="row">
-                <div className={`lead bg-${c.color}`}>
-                  <Icon name={c.icon} size={20} color="#0E0E0E" />
+              <div key={item.key} className="row" onClick={onSeeAll} style={{ cursor: "pointer" }}>
+                <div className={`lead bg-${c.color}`} style={{ width: 52, height: 52, borderRadius: 16 }}>
+                  <Icon name={c.icon} size={22} color="#0E0E0E" />
                 </div>
                 <div className="meta">
-                  <div className="t">{e.label}</div>
-                  <div className="s">{e.date}{author ? ` · ${author.name}` : ""}</div>
+                  <div className="t">{item.label}</div>
+                  {subtitle && <div className="s">{subtitle}</div>}
                 </div>
                 <div className="trail">
-                  <div className="amt num">{shek(e.amount, e.amount % 1 ? 2 : 0)}</div>
+                  <div className="amt num">{shek(item.amount, item.amount % 1 ? 2 : 0)}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginTop: 2 }}>{c.label}</div>
                 </div>
               </div>
             );
@@ -337,7 +371,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
         <BalanceCard balance={balance} people={people} onSettle={() => nav("household")} />
         <SpendOverview expenses={combinedSpending} budget={budget} onOpen={openHistory} />
         <GroceryPreview items={grocery} people={people} onOpen={openGrocery} onAdd={openGrocery} />
-        <RecentTransactions expenses={expenses} people={people} limit={3} onSeeAll={openHistory} />
+        <RecentTransactions expenses={expenses} bills={bills} people={people} limit={5} onSeeAll={openHistory} />
       </div>
     </div>
   );
