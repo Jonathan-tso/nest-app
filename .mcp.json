@@ -3,6 +3,10 @@
     "base44-docs": {
       "type": "http",
       "url": "https://docs.base44.com/mcp"
+    },
+    "shufersal": {
+      "command": "npx",
+      "args": ["mcp-server-shufersal"]
     }
   }
 }
