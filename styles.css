@@ -222,7 +222,11 @@ body {
 /* ===== Top bar ===== */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 22px 14px;
+  padding: 8px 22px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(to bottom, var(--paper) 55%, transparent);
 }
 .topbar .back {
   width: 38px; height: 38px; display: grid; place-items: center;
