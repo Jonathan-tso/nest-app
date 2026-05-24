@@ -130,7 +130,7 @@ const GroceryItemSheet = ({ open, item, onClose, onUpdate, onDelete }) => {
 
         <div className="mt-16">
           <div className="field-label">שם</div>
-          <input className="input" value={name} onChange={e => setName(e.target.value)} autoFocus />
+          <input className="input" value={name} onChange={e => setName(e.target.value)} />
         </div>
 
         <div className="mt-16">
