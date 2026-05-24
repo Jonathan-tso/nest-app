@@ -117,26 +117,39 @@ const SpendOverview = ({ expenses, budget, onOpen }) => {
 };
 
 const BalanceCard = ({ balance, people, onSettle }) => {
-  if (Math.abs(balance) < 0.5) return null;
-  const youOwe = balance < 0;
   const others = people.filter(p => !p.isYou);
   const counterpart = others[0];
-  if (!counterpart) return null;
+  if (!counterpart || people.length < 2) return null;
+
+  const settled = Math.abs(balance) < 0.5;
+  const youOwe = balance < 0;
+  const feminine = counterpart.name?.endsWith("ה");
+
   return (
-    <div className="card" onClick={onSettle} style={{ padding: 18, background: "var(--cream-soft)", cursor: "pointer" }}>
-      <div className="hstack between">
+    <div className="card" style={{ padding: 18, background: "var(--cream-soft)", border: "none" }}>
+      <div className="hstack between" style={{ alignItems: "center" }}>
         <div className="vstack gap-4">
-          <div className="tiny">מאזן</div>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>
-            {youOwe
-              ? <>אתה חייב ל<span style={{ fontWeight: 800 }}>{counterpart.name}</span></>
-              : <><span style={{ fontWeight: 800 }}>{counterpart.name}</span> חייב{counterpart.name?.endsWith("ה") ? "ת" : ""} לך</>}
-          </div>
-          <div className="h2 num" style={{ marginTop: 2 }}>{shek(Math.abs(balance), 0)}</div>
+          <div className="tiny">סילוק תשלומים</div>
+          {settled ? (
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--good)", marginTop: 2 }}>
+              מסולק ✓
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>
+                {youOwe
+                  ? <>אתה חייב ל<span style={{ fontWeight: 800 }}>{counterpart.name}</span></>
+                  : <><span style={{ fontWeight: 800 }}>{counterpart.name}</span> {feminine ? "חייבת" : "חייב"} לך</>}
+              </div>
+              <div className="h2 num" style={{ marginTop: 4 }}>{shek(Math.abs(balance), 0)}</div>
+            </>
+          )}
         </div>
-        <div className="vstack" style={{ alignItems: "center", gap: 6 }}>
+        <div className="vstack" style={{ alignItems: "center", gap: 8 }}>
           <AvatarStack people={people} size="" />
-          <button className="btn sm" style={{ width: "auto" }} onClick={onSettle}>סגירה</button>
+          {!settled && (
+            <button className="btn sm" style={{ width: "auto" }} onClick={onSettle}>סלק חוב</button>
+          )}
         </div>
       </div>
     </div>
