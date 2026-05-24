@@ -81,6 +81,7 @@ const Shell = () => {
 
     const onMove = (e) => {
       if (!t.tracking) return;
+      e.preventDefault();
       const dx = isRTL ? t.startX - clientX(e) : clientX(e) - t.startX;
       const dy = Math.abs(clientY(e) - t.startY);
       if (dy > 40 && dx < 10) { t.tracking = false; setXY(0, true); return; }
@@ -100,7 +101,7 @@ const Shell = () => {
     };
 
     window.addEventListener("touchstart", onStart, { passive: true });
-    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: false });
     window.addEventListener("touchend", onEnd);
     return () => {
       window.removeEventListener("touchstart", onStart);
