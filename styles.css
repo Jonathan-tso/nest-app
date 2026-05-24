@@ -378,6 +378,7 @@ body {
 }
 .input:focus { outline: none; border-color: var(--ink); }
 .input::placeholder { color: var(--text-3); }
+input[type="date"].input { -webkit-appearance: none; appearance: none; }
 textarea.input { padding: 14px 16px; height: auto; min-height: 80px; resize: vertical; }
 
 /* ===== Progress bars ===== */
