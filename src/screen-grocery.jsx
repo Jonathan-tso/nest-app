@@ -363,15 +363,24 @@ const GroceryScreen = ({ onBack }) => {
               background: "transparent", padding: 22, textAlign: "center",
             }}>
               <div className="small muted" style={{ marginBottom: 10 }}>איך נקרא לרשימה?</div>
-              <InlineNameInput
+              <input
+                autoFocus
                 className="input"
                 value={newListName}
-                onChange={setNewListName}
-                onSubmit={submitCreateList}
-                onCancel={cancelCreateList}
+                onChange={e => setNewListName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") submitCreateList(); else if (e.key === "Escape") cancelCreateList(); }}
                 placeholder="שם הרשימה…"
                 style={{ textAlign: "center" }}
               />
+              <div className="hstack gap-8" style={{ marginTop: 12 }}>
+                <button className="btn ghost" onClick={cancelCreateList} style={{ flex: 1 }}>ביטול</button>
+                <button
+                  className="btn"
+                  onClick={submitCreateList}
+                  disabled={!(newListName || "").trim()}
+                  style={{ flex: 2, opacity: (newListName || "").trim() ? 1 : 0.4 }}
+                >צור רשימה</button>
+              </div>
             </div>
           ) : (
             <button
@@ -408,21 +417,35 @@ const GroceryScreen = ({ onBack }) => {
                 </button>
               ))}
               {newListName !== null ? (
-                <InlineNameInput
-                  className="chip"
-                  value={newListName}
-                  onChange={setNewListName}
-                  onSubmit={submitCreateList}
-                  onCancel={cancelCreateList}
-                  placeholder="שם רשימה…"
-                  style={{
-                    fontFamily: "inherit", flexShrink: 0,
-                    border: "1.5px dashed var(--line-strong)",
-                    background: "transparent", outline: "none",
-                    minWidth: 110, width: 130,
-                    fontSize: 13, fontWeight: 600,
-                  }}
-                />
+                <div className="hstack gap-6" style={{ flexShrink: 0 }}>
+                  <input
+                    autoFocus
+                    value={newListName}
+                    onChange={e => setNewListName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") submitCreateList(); else if (e.key === "Escape") cancelCreateList(); }}
+                    placeholder="שם רשימה…"
+                    style={{
+                      fontFamily: "inherit", flexShrink: 0,
+                      border: "1.5px dashed var(--line-strong)",
+                      background: "transparent", outline: "none",
+                      borderRadius: 99, padding: "0 12px",
+                      height: 34, minWidth: 100, width: 120,
+                      fontSize: 13, fontWeight: 600,
+                    }}
+                  />
+                  <button
+                    onClick={submitCreateList}
+                    disabled={!(newListName || "").trim()}
+                    style={{
+                      width: 34, height: 34, borderRadius: "50%", border: "none", flexShrink: 0,
+                      background: "var(--ink)", color: "#fff", cursor: "pointer",
+                      display: "grid", placeItems: "center",
+                      opacity: (newListName || "").trim() ? 1 : 0.35,
+                    }}
+                  >
+                    <Icon name="check" size={16} color="#fff" />
+                  </button>
+                </div>
               ) : (
                 <button
                   className="chip outline"
