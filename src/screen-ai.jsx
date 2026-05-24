@@ -121,17 +121,11 @@ const renderBold = (text) => {
   );
 };
 
-const ThinkingIndicator = () => {
-  const words = ["Reading", "Thinking", "Writing"];
-  const [idx, setIdx] = React.useState(0);
-  React.useEffect(() => {
-    if (idx >= words.length - 1) return;
-    const t = setTimeout(() => setIdx(i => i + 1), 1600);
-    return () => clearTimeout(t);
-  }, [idx]);
+const ThinkingIndicator = ({ stage }) => {
+  const word = stage === "thinking" ? "Thinking" : stage === "writing" ? "Writing" : "Reading";
   return (
     <div className="bubble ai" style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}>
-      <span key={idx} className="ai-text" style={{ animation: "fadeUp 0.35s ease both" }}>{words[idx]}</span>
+      <span key={word} className="ai-text" style={{ animation: "fadeUp 0.35s ease both" }}>{word}</span>
       <span style={{ fontWeight: 700, color: "var(--ink)" }}>Nest</span>
     </div>
   );
@@ -146,7 +140,7 @@ const TOOL_LABELS = {
 };
 
 const AIChat = ({ onBack }) => {
-  const { state, pending, sendChatMessage, setApiKey } = useAppState();
+  const { state, pending, aiStage, sendChatMessage, setApiKey } = useAppState();
   const [text, setText] = React.useState("");
   const [showSettings, setShowSettings] = React.useState(false);
   const scrollRef = React.useRef(null);
@@ -228,7 +222,7 @@ const AIChat = ({ onBack }) => {
           );
         })}
 
-        {pending && <ThinkingIndicator />}
+        {pending && <ThinkingIndicator stage={aiStage} />}
       </div>
 
       <div style={{ flexShrink: 0, padding: "8px 22px 22px", background: "var(--paper)" }}>

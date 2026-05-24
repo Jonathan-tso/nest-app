@@ -251,11 +251,13 @@ async function callClaude({ apiKey, model = "claude-haiku-4-5", messages, people
 const BASE44_SUPERAGENT_API_KEY = "d9e3bb73c59444bd85463687f04d42cf";
 const BASE44_SUPERAGENT_BASE_URL = "https://app.base44.com/api/agents/6a11ef9dc0a53cfd1e279e71";
 
-async function callBase44Superagent({ message, conversationId }) {
+async function callBase44Superagent({ message, conversationId, onStage }) {
   const headers = { "Content-Type": "application/json" };
   const authParam = `api_key=${BASE44_SUPERAGENT_API_KEY}`;
 
   let convId = conversationId;
+
+  onStage?.("reading");
 
   if (!convId) {
     const createResp = await fetch(`${BASE44_SUPERAGENT_BASE_URL}/conversations?${authParam}`, {
@@ -276,6 +278,8 @@ async function callBase44Superagent({ message, conversationId }) {
     const conv = await createResp.json();
     convId = conv.id;
   }
+
+  onStage?.("thinking");
 
   const msgResp = await fetch(`${BASE44_SUPERAGENT_BASE_URL}/conversations/${convId}/messages?${authParam}`, {
     method: "POST",

@@ -73,7 +73,7 @@ const AppStateProvider = ({ children }) => {
   const [chat, setChat] = React.useState([]);
   const [settings, setSettings] = React.useState({ apiKey: window.BASE44_SUPERAGENT_API_KEY || "enabled", model: "claude-haiku-4-5", budget: 8200 });
   const [insights, setInsights] = React.useState([]);
-  const [pending, setPending] = React.useState(false);
+  const [aiStage, setAiStage] = React.useState(null);
   const [hydrating, setHydrating] = React.useState(true);
 
   // Persist Base44 Superagent conversation_id across messages (localStorage-backed ref)
@@ -486,18 +486,18 @@ const AppStateProvider = ({ children }) => {
 
   // ===== Chat orchestration (Base44 Superagent) =====
   const sendChatMessage = async (text) => {
-    if (!text || !text.trim() || pending) return;
+    if (!text || !text.trim() || aiStage !== null) return;
 
     const userMsg = { role: "user", content: text };
     const history = [...stateRef.current.chat, userMsg];
     setChat(history);
     persistChat(userMsg);
-    setPending(true);
 
     try {
       const { conversationId, content } = await window.callBase44Superagent({
         message: text,
         conversationId: superagentConvIdRef.current,
+        onStage: setAiStage,
       });
 
       if (conversationId !== superagentConvIdRef.current) {
@@ -513,7 +513,7 @@ const AppStateProvider = ({ children }) => {
       setChat([...history, errMsg]);
       persistChat(errMsg);
     } finally {
-      setPending(false);
+      setAiStage(null);
     }
   };
 
@@ -522,7 +522,7 @@ const AppStateProvider = ({ children }) => {
       expenses, bills, grocery, groceryLists, selectedListId,
       people, chat, insights, ...settings, budget: settings.budget,
     },
-    pending, hydrating,
+    aiStage, pending: aiStage !== null, hydrating,
     addExpense, updateExpense, removeExpense,
     addBill, updateBill, removeBill,
     addGroceryItem, toggleGroceryItem, removeGroceryItem, updateGroceryItem,
