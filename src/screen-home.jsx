@@ -402,7 +402,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
         <BalanceCard balance={balance} people={people} onSettle={() => nav("household")} />
         <SpendOverview expenses={combinedSpending} budget={budget} onOpen={openHistory} />
         <GroceryPreview items={grocery} people={people} onOpen={openGrocery} onAdd={openGrocery} />
-        <RecentTransactions expenses={expenses} bills={bills} people={people} limit={5} onSeeAll={openHistory} />
+        <RecentTransactions expenses={expenses} bills={bills} people={people} limit={5} onSeeAll={openBills} />
       </div>
     </div>
   );
