@@ -369,7 +369,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
 
   return (
     <div className="scroll">
-      <div style={{ padding: "10px 22px 18px" }}>
+      <div style={{ padding: "10px 22px 18px", position: "sticky", top: 0, zIndex: 10, background: "linear-gradient(to bottom, var(--paper) 55%, transparent)" }}>
         <div className="hstack between mb-16">
           <div className="hstack gap-10">
             <button className="btn icon-only soft" style={{ background: "var(--cream-soft)" }} onClick={() => nav("notifications")}>
