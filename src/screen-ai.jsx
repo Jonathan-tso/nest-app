@@ -125,13 +125,14 @@ const ThinkingIndicator = () => {
   const words = ["Reading", "Thinking", "Writing"];
   const [idx, setIdx] = React.useState(0);
   React.useEffect(() => {
-    const t = setInterval(() => setIdx(i => (i + 1) % words.length), 1400);
-    return () => clearInterval(t);
-  }, []);
+    if (idx >= words.length - 1) return;
+    const t = setTimeout(() => setIdx(i => i + 1), 1600);
+    return () => clearTimeout(t);
+  }, [idx]);
   return (
     <div className="bubble ai" style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}>
-      <span style={{ fontWeight: 700, color: "var(--ink)" }}>Nest</span>
       <span key={idx} className="ai-text" style={{ animation: "fadeUp 0.35s ease both" }}>{words[idx]}</span>
+      <span style={{ fontWeight: 700, color: "var(--ink)" }}>Nest</span>
     </div>
   );
 };
