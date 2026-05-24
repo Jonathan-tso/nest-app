@@ -246,6 +246,50 @@ async function callClaude({ apiKey, model = "claude-haiku-4-5", messages, people
   return await resp.json();
 }
 
+async function generateAIInsight({ apiKey, model = "claude-haiku-4-5", expenses, bills, budget }) {
+  const now = new Date();
+  const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const thisKey = monthKey(now);
+  const lastKey = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+
+  const thisExp  = expenses.filter(e => e.createdAt?.slice(0, 7) === thisKey);
+  const lastExp  = expenses.filter(e => e.createdAt?.slice(0, 7) === lastKey);
+  const thisTotal = thisExp.reduce((s, e) => s + e.amount, 0);
+  const lastTotal = lastExp.reduce((s, e) => s + e.amount, 0);
+
+  const byCat = {};
+  thisExp.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
+
+  const data = {
+    thisMonth:   { total: thisTotal, byCategory: byCat },
+    lastMonth:   { total: lastTotal },
+    budget,
+    overdueBills: bills.filter(b => b.status === "overdue").length,
+    unpaidBills:  bills.filter(b => !b.paid).map(b => ({ label: b.label, amount: b.amount, dueDate: b.dueDate })),
+  };
+
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model, max_tokens: 256,
+      system: 'אתה מנתח פיננסי קצר. קרא את נתוני הבית והפק תובנה אחת בעברית. החזר JSON בלבד: {"title":"...","body":"..."}. כותרת עד 55 תווים, גוף 1–2 משפטים.',
+      messages: [{ role: "user", content: JSON.stringify(data) }],
+    }),
+  });
+  if (!resp.ok) return null;
+  const json = await resp.json();
+  const text = json.content?.[0]?.text || "";
+  const match = text.match(/\{[\s\S]*?\}/);
+  if (!match) return null;
+  try { return JSON.parse(match[0]); } catch { return null; }
+}
+
 // Base44 Superagent integration
 // Base URL is copied from Superagent Settings > API (pattern: https://www.base44.app/api/apps/{app_id})
 const BASE44_SUPERAGENT_API_KEY = "d9e3bb73c59444bd85463687f04d42cf";
@@ -300,4 +344,4 @@ async function callBase44Superagent({ message, conversationId, onStage }) {
   return { conversationId: convId, content: assistantMsg.content };
 }
 
-Object.assign(window, { callClaude, callBase44Superagent, BASE44_SUPERAGENT_API_KEY, executeTool, buildTools, buildSystemPrompt });
+Object.assign(window, { callClaude, callBase44Superagent, BASE44_SUPERAGENT_API_KEY, executeTool, buildTools, buildSystemPrompt, generateAIInsight });

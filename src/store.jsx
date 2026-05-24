@@ -143,6 +143,30 @@ const AppStateProvider = ({ children }) => {
       setInsights((insR.data || []).map(mapInsight));
       await refetchMembers();
       setHydrating(false);
+
+      // Auto-generate an AI insight if none exists from the last 24 hours
+      const anthropicKey = stR.data?.api_key;
+      if (anthropicKey && (expR.data || []).length >= 3) {
+        const cutoff = new Date(Date.now() - 86_400_000).toISOString();
+        const hasRecent = (insR.data || []).some(r => r.created_at > cutoff);
+        if (!hasRecent) {
+          window.generateAIInsight({
+            apiKey: anthropicKey,
+            model: stR.data?.model || "claude-haiku-4-5",
+            expenses: (expR.data || []).map(mapExpense),
+            bills:    (bilR.data || []).map(mapBill),
+            budget:   stR.data?.budget || 0,
+          }).then(async (insight) => {
+            if (!insight?.title || !alive) return;
+            const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
+            const { data: row } = await supabase
+              .from("ai_insights")
+              .insert({ household_id: householdId, title: insight.title, body: insight.body || "", expires_at: expiresAt })
+              .select().single();
+            if (row && alive) setInsights(prev => [mapInsight(row), ...prev]);
+          }).catch(() => {});
+        }
+      }
     })();
 
     return () => { alive = false; };
