@@ -369,8 +369,8 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
 
   return (
     <div className="scroll">
-      <div style={{ padding: "10px 22px 18px", position: "sticky", top: 0, zIndex: 10, background: "linear-gradient(to bottom, var(--paper) 55%, transparent)" }}>
-        <div className="hstack between mb-16">
+      <div style={{ padding: "10px 22px 4px", position: "sticky", top: 0, zIndex: 10, background: "linear-gradient(to bottom, var(--paper) 55%, transparent)" }}>
+        <div className="hstack between">
           <div className="hstack gap-10">
             <button className="btn icon-only soft" style={{ background: "var(--cream-soft)" }} onClick={() => nav("notifications")}>
               <Icon name="bell" size={20} />
@@ -381,7 +381,10 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
           </div>
           <NestLogo size={22} />
         </div>
-        <div className="hstack between" style={{ alignItems: "flex-end" }}>
+      </div>
+
+      <div className="vstack gap-16 px-22">
+        <div className="hstack between" style={{ alignItems: "flex-end", paddingTop: 14 }}>
           <div>
             <div className="small muted">היי {you?.name || ""}</div>
             <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2, letterSpacing: "-0.02em" }}>
@@ -393,9 +396,6 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
             <div className="h2 num" style={{ marginTop: 2 }}>{shek(totalSpent, 0)}</div>
           </div>
         </div>
-      </div>
-
-      <div className="vstack gap-16 px-22">
         <AIInput onSubmit={onAISubmit} />
         <AIInsightCard insights={insights} />
         <OverdueBills bills={bills} people={people} onOpen={openBills} />
