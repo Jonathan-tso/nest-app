@@ -80,6 +80,9 @@ const AppStateProvider = ({ children }) => {
   const superagentConvIdRef = React.useRef(
     typeof localStorage !== "undefined" ? (localStorage.getItem("superagent_conversation_id") || null) : null
   );
+  // User's personal Anthropic API key — stored here so refreshInsight can reach it after hydration
+  const anthropicKeyRef = React.useRef(null);
+  const generatingInsightRef = React.useRef(false);
 
   // Track latest snapshot for tool execution / closures
   const stateRef = React.useRef({});
@@ -146,6 +149,7 @@ const AppStateProvider = ({ children }) => {
 
       // Auto-generate an AI insight if none exists from the last 24 hours
       const anthropicKey = stR.data?.api_key;
+      anthropicKeyRef.current = anthropicKey || null;
       if (anthropicKey && (expR.data || []).length >= 3) {
         const cutoff = new Date(Date.now() - 86_400_000).toISOString();
         const hasRecent = (insR.data || []).some(r => r.created_at > cutoff);
@@ -309,6 +313,7 @@ const AppStateProvider = ({ children }) => {
     const { data, error } = await supabase.from("bills").update(dbPatch).eq("id", id).select().single();
     if (error) throw error;
     setBills(prev => prev.map(x => x.id === id ? mapBill(data) : x));
+    if (patch.paid === true) refreshInsight().catch(() => {});
   };
   const removeBill = async (id) => {
     const { error } = await supabase.from("bills").delete().eq("id", id);
@@ -508,6 +513,31 @@ const AppStateProvider = ({ children }) => {
     setExpenses([]); setBills([]); setGrocery([]);
   };
 
+  // ===== AI Insight refresh =====
+  const refreshInsight = async () => {
+    const apiKey = anthropicKeyRef.current;
+    if (!apiKey || !supabase || !householdId || generatingInsightRef.current) return;
+    generatingInsightRef.current = true;
+    try {
+      const { expenses: curExpenses, bills: curBills, settings: s } = stateRef.current;
+      const insight = await window.generateAIInsight({
+        apiKey,
+        model: s.model || "claude-haiku-4-5",
+        expenses: curExpenses,
+        bills: curBills,
+        budget: s.budget || 0,
+      });
+      if (!insight?.title) return;
+      const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
+      const { data: row } = await supabase
+        .from("ai_insights")
+        .insert({ household_id: householdId, title: insight.title, body: insight.body || "", expires_at: expiresAt })
+        .select().single();
+      if (row) setInsights(prev => [mapInsight(row), ...prev]);
+    } catch (_) {}
+    finally { generatingInsightRef.current = false; }
+  };
+
   // ===== Chat orchestration (Base44 Superagent) =====
   const sendChatMessage = async (text) => {
     if (!text || !text.trim() || aiStage !== null) return;
@@ -555,6 +585,7 @@ const AppStateProvider = ({ children }) => {
             .then(({ data }) => data && setGrocery(data.map(mapGrocery)))
         );
         await Promise.all(jobs);
+        if (calledTools.has("mark_bill_paid")) refreshInsight().catch(() => {});
       }
     } catch (err) {
       const errMsg = { role: "assistant", content: `שגיאה: ${err.message}` };
