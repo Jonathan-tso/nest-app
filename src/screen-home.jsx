@@ -74,27 +74,44 @@ const SpendOverview = ({ expenses, budget, onOpen }) => {
 
   const top5 = data.slice(0, 5);
   const donutData = top5.length > 0 ? top5 : [{ value: 1, color: "#E8E5DC", label: "", id: "empty" }];
+  const budgetPct = budget && total > 0 ? Math.round((total / budget) * 100) : null;
 
   return (
     <div className="card" onClick={onOpen} style={{ padding: 20, cursor: "pointer" }}>
-      <div className="hstack between" style={{ alignItems: "flex-start" }}>
-        <div style={{ flex: 1 }}>
+      {/* Top row: text on right (RTL start), donut on left (RTL end) */}
+      <div className="hstack between" style={{ alignItems: "center" }}>
+        <div>
           <div className="tiny">החודש</div>
           <div className="h1 num" style={{ marginTop: 4 }}>{shek(total, 0)}</div>
-          {top5.length > 0 && (
-            <div className="vstack gap-6" style={{ marginTop: 14 }}>
-              {top5.map(d => (
-                <div key={d.id} className="hstack gap-8" style={{ alignItems: "center" }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 3, background: d.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 600 }}>{d.label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, marginInlineStart: "auto" }}>{shek(d.value, 0)}</span>
-                </div>
-              ))}
+          {budgetPct !== null && (
+            <div className="small muted" style={{ marginTop: 4 }}>
+              מתוך {shek(budget, 0)} · {budgetPct}% · תקציב
             </div>
           )}
         </div>
-        <Donut data={donutData} size={104} stroke={14} />
+        <Donut data={donutData} size={124} stroke={16} />
       </div>
+
+      {/* Category legend */}
+      {top5.length > 0 && (
+        <div className="vstack gap-10" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
+          {top5.map(d => {
+            const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
+            return (
+              <div key={d.id} className="hstack between" style={{ alignItems: "center" }}>
+                <div className="hstack gap-8" style={{ alignItems: "center" }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{d.label}</span>
+                </div>
+                <div className="hstack gap-10">
+                  <span className="small muted">{pct}%</span>
+                  <span className="num" style={{ fontSize: 13, fontWeight: 700 }}>{shek(d.value, 0)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
