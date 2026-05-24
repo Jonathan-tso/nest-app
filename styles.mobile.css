@@ -1,5 +1,8 @@
 /* ===== Mobile: fill the whole viewport, no desktop phone frame ===== */
 @media (max-width: 500px) {
+  body {
+    background: var(--paper);
+  }
   .stage {
     padding: 0;
     min-height: 100vh;

@@ -29,8 +29,7 @@ const Shell = () => {
   const [route, setRoute] = useState("home");
   const [addOpen, setAddOpen] = useState(false);
   const [stack, setStack] = useState(["home"]);
-  const [dragX, setDragX] = useState(0);
-  const [activeDrag, setActiveDrag] = useState(false);
+  const screenRef = React.useRef(null);
   const touchRef = React.useRef({ tracking: false, startX: 0, startY: 0 });
 
   const navigate = (r) => { setStack(prev => [...prev, r]); setRoute(r); };
@@ -54,35 +53,49 @@ const Shell = () => {
   React.useEffect(() => {
     const t = touchRef.current;
     const isRTL = document.documentElement.dir === "rtl";
+    const dir = isRTL ? -1 : 1;
     const w = window.innerWidth;
-    const px = (e) => (e.touches || e.changedTouches)[0].clientX;
-    const py = (e) => (e.touches || e.changedTouches)[0].clientY;
+    const clientX = (e) => (e.touches?.[0] || e.changedTouches?.[0])?.clientX ?? 0;
+    const clientY = (e) => (e.touches?.[0] || e.changedTouches?.[0])?.clientY ?? 0;
+
+    const node = () => screenRef.current;
+    const setXY = (dx, animated) => {
+      const el = node();
+      if (!el) return;
+      el.style.transition = animated ? "transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s ease" : "none";
+      if (dx > 0) {
+        el.style.transform = `translateX(${dx * dir}px)`;
+        el.style.boxShadow = `${-6 * dir}px 0 24px rgba(0,0,0,${0.12 * Math.min(dx / w, 1)})`;
+      } else {
+        el.style.transform = "";
+        el.style.boxShadow = "";
+      }
+    };
 
     const onStart = (e) => {
-      const x = px(e);
-      if (isRTL ? x > w - 30 : x < 30) {
-        t.tracking = true; t.startX = x; t.startY = py(e);
+      const x = clientX(e);
+      if (isRTL ? x > w - 36 : x < 36) {
+        t.tracking = true; t.startX = x; t.startY = clientY(e);
       }
     };
 
     const onMove = (e) => {
       if (!t.tracking) return;
-      const dx = isRTL ? t.startX - px(e) : px(e) - t.startX;
-      const dy = Math.abs(py(e) - t.startY);
-      if (dy > 40 && dx < 10) { t.tracking = false; setActiveDrag(false); setDragX(0); return; }
-      if (dx > 0 && stack.length > 1) { setActiveDrag(true); setDragX(Math.min(dx, w)); }
+      const dx = isRTL ? t.startX - clientX(e) : clientX(e) - t.startX;
+      const dy = Math.abs(clientY(e) - t.startY);
+      if (dy > 40 && dx < 10) { t.tracking = false; setXY(0, true); return; }
+      if (dx > 0 && stack.length > 1) setXY(Math.min(dx, w), false);
     };
 
     const onEnd = (e) => {
       if (!t.tracking) return;
       t.tracking = false;
-      const dx = isRTL ? t.startX - px(e) : px(e) - t.startX;
-      setActiveDrag(false);
+      const dx = isRTL ? t.startX - clientX(e) : clientX(e) - t.startX;
       if (dx > w * 0.35 && stack.length > 1) {
-        setDragX(w);
-        setTimeout(() => { back(); setDragX(0); }, 280);
+        setXY(w, true);
+        setTimeout(() => { back(); setXY(0, false); }, 310);
       } else {
-        setDragX(0);
+        setXY(0, true);
       }
     };
 
@@ -98,22 +111,9 @@ const Shell = () => {
 
   if (hydrating) return <LoadingScreen />;
 
-  const isRTL = document.documentElement.dir === "rtl";
-  const dir = isRTL ? -1 : 1;
-  const screenStyle = dragX > 0 ? {
-    position: "absolute", inset: 0,
-    transform: `translateX(${dragX * dir}px)`,
-    transition: activeDrag ? "none" : "transform 0.28s cubic-bezier(0.25, 1, 0.5, 1)",
-    boxShadow: `${-6 * dir}px 0 20px rgba(0,0,0,0.13)`,
-    willChange: "transform",
-  } : {
-    position: "absolute", inset: 0,
-    transition: "transform 0.28s cubic-bezier(0.25, 1, 0.5, 1)",
-  };
-
   return (
     <>
-      <div style={screenStyle}>
+      <div ref={screenRef} style={{ position: "absolute", inset: 0 }}>
         {route === "home" && <HomeScreen nav={navigate} openBills={() => navigate("bills")} openGrocery={() => navigate("grocery")} openExpense={() => setAddOpen(true)} openHistory={() => navigate("history")} onAISubmit={submitFromHome} />}
         {route === "bills" && <BillsScreen onBack={back} />}
         {route === "grocery" && <GroceryScreen onBack={back} />}
