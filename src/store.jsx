@@ -508,6 +508,30 @@ const AppStateProvider = ({ children }) => {
       const assistantMsg = { role: "assistant", content };
       setChat([...history, assistantMsg]);
       persistChat(assistantMsg);
+
+      // If the agent modified data, refetch the affected tables immediately
+      // so changes appear without waiting for realtime or a page reload.
+      const toolUses = Array.isArray(content) ? content.filter(b => b.type === "tool_use") : [];
+      const calledTools = new Set(toolUses.map(t => t.name));
+      if (supabase && householdId && calledTools.size > 0) {
+        const fetchExpenses = calledTools.has("add_expense");
+        const fetchBills    = calledTools.has("add_bill") || calledTools.has("mark_bill_paid");
+        const fetchGrocery  = calledTools.has("add_grocery_item");
+        const jobs = [];
+        if (fetchExpenses) jobs.push(
+          supabase.from("expenses").select("*").eq("household_id", householdId).order("created_at", { ascending: false })
+            .then(({ data }) => data && setExpenses(data.map(mapExpense)))
+        );
+        if (fetchBills) jobs.push(
+          supabase.from("bills").select("*").eq("household_id", householdId).order("created_at", { ascending: false })
+            .then(({ data }) => data && setBills(data.map(mapBill)))
+        );
+        if (fetchGrocery) jobs.push(
+          supabase.from("grocery_items").select("*").eq("household_id", householdId).order("created_at", { ascending: false })
+            .then(({ data }) => data && setGrocery(data.map(mapGrocery)))
+        );
+        await Promise.all(jobs);
+      }
     } catch (err) {
       const errMsg = { role: "assistant", content: `שגיאה: ${err.message}` };
       setChat([...history, errMsg]);
