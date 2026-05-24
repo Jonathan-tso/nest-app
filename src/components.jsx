@@ -110,8 +110,8 @@ const StatusBar = ({ inverted = false }) =>
 
 
 // ====== Top bar ======
-const TopBar = ({ title, onBack, trailing }) =>
-<div className="topbar">
+const TopBar = ({ title, onBack, trailing, style }) =>
+<div className="topbar" style={style}>
     <div className="back" onClick={onBack}>
       {onBack ? <Icon name="back" size={20} /> : null}
     </div>
