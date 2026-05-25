@@ -740,9 +740,7 @@ textarea.input { padding: 14px 16px; height: auto; min-height: 80px; resize: ver
 }
 .bills-sticky.is-compact {
   padding: 6px 16px 10px;
-  box-shadow:
-    0 6px 18px rgba(20, 18, 14, .05),
-    0 1px 0   rgba(20, 18, 14, .04);
+  background: transparent;
 }
 
 .bills-summary {
