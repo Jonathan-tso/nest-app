@@ -8,9 +8,9 @@ const SUGGESTIONS = [
 ];
 
 const PRESETS = [
-  { icon: "plus",     label: "הוסף הוצאה",    prompt: "אני רוצה לרשום הוצאה" },
-  { icon: "sparkles", label: "סיכום חודשי",    prompt: "תן לי סיכום של ההוצאות שלי החודש" },
-  { icon: "cart",     label: "הוסף לקניות",    prompt: "אני רוצה להוסיף פריט לרשימת הקניות" },
+  { icon: "plus",     prompt: "רשום הוצאה חדשה" },
+  { icon: "sparkles", prompt: "כמה הוצאתי החודש?" },
+  { icon: "cart",     prompt: "הוסף פריט לקניות" },
 ];
 
 const ApiKeyPrompt = ({ onSave }) => {
@@ -127,11 +127,17 @@ const renderBold = (text) => {
   );
 };
 
-const ThinkingIndicator = ({ stage }) => {
-  const word = stage === "thinking" ? "Thinking" : stage === "writing" ? "Writing" : "Reading";
+const ThinkingIndicator = () => {
+  const words = ["Reading", "Thinking", "Writing"];
+  const [idx, setIdx] = React.useState(0);
+  React.useEffect(() => {
+    if (idx >= words.length - 1) return;
+    const t = setTimeout(() => setIdx(i => i + 1), 1500);
+    return () => clearTimeout(t);
+  }, [idx]);
   return (
     <div className="bubble ai" style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}>
-      <span key={word} className="ai-text" style={{ animation: "fadeUp 0.35s ease both" }}>{word}</span>
+      <span key={idx} className="ai-text" style={{ animation: "fadeUp 0.35s ease both" }}>{words[idx]}</span>
       <span style={{ fontWeight: 700, color: "var(--ink)" }}>Nest</span>
     </div>
   );
@@ -146,7 +152,7 @@ const TOOL_LABELS = {
 };
 
 const AIChat = ({ onBack }) => {
-  const { state, pending, aiStage, sendChatMessage, setApiKey } = useAppState();
+  const { state, pending, sendChatMessage, setApiKey } = useAppState();
   const [text, setText] = React.useState("");
   const [showSettings, setShowSettings] = React.useState(false);
   const scrollRef = React.useRef(null);
@@ -229,27 +235,21 @@ const AIChat = ({ onBack }) => {
           );
         })}
 
-        {pending && <ThinkingIndicator stage={aiStage} />}
+        {pending && <ThinkingIndicator />}
       </div>
 
       <div style={{ flexShrink: 0, padding: "8px 22px 22px", background: "var(--paper)" }}>
-        <div className="hstack gap-8" style={{ marginBottom: 10 }}>
+        <div className="hstack gap-6" style={{ marginBottom: 10, flexWrap: "wrap" }}>
           {PRESETS.map(p => (
             <button
-              key={p.label}
+              key={p.prompt}
+              className="chip outline"
               onClick={() => send(p.prompt)}
               disabled={pending || !state.apiKey}
-              style={{
-                flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                padding: "10px 6px", borderRadius: 14, border: "1px solid var(--line)",
-                background: "var(--cream-soft)", cursor: "pointer", fontFamily: "inherit",
-                opacity: pending || !state.apiKey ? 0.4 : 1,
-              }}
+              style={{ fontFamily: "inherit", opacity: pending || !state.apiKey ? 0.4 : 1 }}
             >
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: "var(--paper)", display: "grid", placeItems: "center", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
-                <Icon name={p.icon} size={16} />
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", lineHeight: 1.3 }}>{p.label}</span>
+              <Icon name={p.icon} size={13} />
+              {p.prompt}
             </button>
           ))}
         </div>
