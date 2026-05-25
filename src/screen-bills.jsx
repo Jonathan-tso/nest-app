@@ -367,6 +367,24 @@ const BillsScreen = ({ onBack }) => {
   const [filter, setFilter] = React.useState("all");
   const [selected, setSelected] = React.useState(null);
   const [adding, setAdding] = React.useState(false);
+  const scrollRef = React.useRef(null);
+  const stickyRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const scrollEl = scrollRef.current;
+    const sticky = stickyRef.current;
+    if (!scrollEl || !sticky) return;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        sticky.classList.toggle("is-compact", scrollEl.scrollTop > 32);
+      });
+    };
+    scrollEl.addEventListener("scroll", onScroll, { passive: true });
+    return () => scrollEl.removeEventListener("scroll", onScroll);
+  }, []);
 
   const filtered = bills.filter(b => {
     if (filter === "all") return true;
@@ -403,15 +421,29 @@ const BillsScreen = ({ onBack }) => {
       }));
   }, [filtered]);
 
-  return (
-    <div className="scroll">
-      <TopBar title="חשבונות" onBack={onBack} />
-      <div className="px-22 vstack gap-12">
-        <div className="card" style={{ padding: 18, background: "var(--cream)" }}>
-          <div className="tiny">לתשלום</div>
-          <div className="h1 num" style={{ marginTop: 4 }}>{shek(totalDue, 0)}</div>
-        </div>
+  const unpaidCount = bills.filter(b => !b.paid).length;
+  const overdueCount = bills.filter(b => b.status === "overdue").length;
 
+  return (
+    <div className="scroll" ref={scrollRef}>
+      <TopBar title="חשבונות" onBack={onBack} />
+
+      <div className="bills-sticky" ref={stickyRef}>
+        <div className="bills-summary">
+          <div className="bills-summary__main">
+            <div className="bills-summary__label">לתשלום החודש</div>
+            <div className="bills-summary__amount num">{shek(totalDue, 0)}</div>
+            <div className="bills-summary__meta">
+              {unpaidCount} חשבונות{overdueCount > 0 ? `, ${overdueCount} בפיגור` : ""}
+            </div>
+          </div>
+          <div className="bills-summary__icon">
+            <Icon name="receipt" size={20} />
+          </div>
+        </div>
+      </div>
+
+      <div className="px-22 vstack gap-12">
         {bills.length > 0 && (
           <div className="hstack gap-6" style={{ overflowX: "auto", paddingBottom: 2 }}>
             {[
