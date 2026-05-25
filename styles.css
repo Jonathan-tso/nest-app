@@ -731,7 +731,7 @@ textarea.input { padding: 14px 16px; height: auto; min-height: 80px; resize: ver
 .bills-sticky {
   position: sticky;
   top: 46px; /* clear the .topbar above */
-  z-index: 5;
+  z-index: 11; /* above .topbar (z-index: 10) so its gradient doesn't overlap */
   background: var(--paper);
   padding: 4px 22px 14px;
   transition:

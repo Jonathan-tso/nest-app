@@ -495,7 +495,7 @@ const BillsScreen = ({ onBack }) => {
 
       <div style={{
         position: "sticky",
-        bottom: 96,
+        bottom: 0,
         marginTop: 16,
         padding: "0 22px",
         display: "flex",
