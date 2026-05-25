@@ -132,7 +132,7 @@ const ThinkingIndicator = () => {
   const [idx, setIdx] = React.useState(0);
   React.useEffect(() => {
     if (idx >= words.length - 1) return;
-    const t = setTimeout(() => setIdx(i => i + 1), 1500);
+    const t = setTimeout(() => setIdx(i => i + 1), 2000);
     return () => clearTimeout(t);
   }, [idx]);
   return (
@@ -176,33 +176,13 @@ const AIChat = ({ onBack }) => {
     });
 
   return (
-    <div className="scroll" style={{ display: "flex", flexDirection: "column", padding: 0 }}>
-      <div style={{ flexShrink: 0, background: "linear-gradient(to bottom, var(--paper) 70%, transparent)", position: "sticky", top: 0, zIndex: 10 }}>
-        <TopBar
-          style={{ background: "transparent", position: "static" }}
-          title=""
-          onBack={onBack}
-          trailing={
-            <button className="btn icon-only" style={{ background: "transparent", border: "none" }}
-              onClick={() => setShowSettings(true)}>
-              <Icon name="settings" size={20} />
-            </button>
-          }
-        />
-        <div className="px-22" style={{ paddingBottom: 12 }}>
-          <div className="hstack gap-8" style={{ marginBottom: 4 }}>
-            <span className="ai-dot" />
-            <span className="ai-text" style={{ fontSize: 13 }}>Nest AI</span>
-          </div>
-          <div className="h2">איך אפשר לעזור?</div>
-        </div>
-      </div>
-
+    <div className="scroll" style={{ padding: 0, overflow: "hidden" }}>
       <div
         ref={scrollRef}
         style={{
-          flex: 1, overflowY: "auto",
-          padding: "8px 22px 16px",
+          position: "absolute", inset: 0,
+          overflowY: "auto",
+          padding: "126px 22px 170px",
           display: "flex", flexDirection: "column", gap: 10,
         }}
       >
@@ -238,7 +218,30 @@ const AIChat = ({ onBack }) => {
         {pending && <ThinkingIndicator />}
       </div>
 
-      <div style={{ flexShrink: 0, padding: "8px 22px 22px", background: "var(--paper)" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, background: "linear-gradient(to bottom, var(--paper) 70%, transparent)", pointerEvents: "none" }}>
+        <div style={{ pointerEvents: "auto" }}>
+          <TopBar
+            style={{ background: "transparent", position: "static" }}
+            title=""
+            onBack={onBack}
+            trailing={
+              <button className="btn icon-only" style={{ background: "transparent", border: "none" }}
+                onClick={() => setShowSettings(true)}>
+                <Icon name="settings" size={20} />
+              </button>
+            }
+          />
+          <div className="px-22" style={{ paddingBottom: 18 }}>
+            <div className="hstack gap-8" style={{ marginBottom: 4 }}>
+              <span className="ai-dot" />
+              <span className="ai-text" style={{ fontSize: 13 }}>Nest AI</span>
+            </div>
+            <div className="h2">איך אפשר לעזור?</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 10, padding: "30px 22px 22px", background: "linear-gradient(to top, var(--paper) 65%, transparent)" }}>
         <div className="hstack gap-6" style={{ marginBottom: 10, flexWrap: "wrap" }}>
           {PRESETS.map(p => (
             <button
@@ -246,7 +249,7 @@ const AIChat = ({ onBack }) => {
               className="chip outline"
               onClick={() => send(p.prompt)}
               disabled={pending || !state.apiKey}
-              style={{ fontFamily: "inherit", opacity: pending || !state.apiKey ? 0.4 : 1 }}
+              style={{ fontFamily: "inherit", opacity: pending || !state.apiKey ? 0.4 : 1, background: "var(--paper)" }}
             >
               <Icon name={p.icon} size={13} />
               {p.prompt}
