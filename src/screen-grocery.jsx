@@ -316,6 +316,24 @@ const GroceryScreen = ({ onBack }) => {
   const [newListName, setNewListName] = React.useState(null);
   const [actingOnList, setActingOnList] = React.useState(null);
   const [editingItem, setEditingItem] = React.useState(null);
+  const scrollRef = React.useRef(null);
+  const stickyRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const scrollEl = scrollRef.current;
+    const sticky = stickyRef.current;
+    if (!scrollEl || !sticky) return;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        sticky.classList.toggle("is-compact", scrollEl.scrollTop > 32);
+      });
+    };
+    scrollEl.addEventListener("scroll", onScroll, { passive: true });
+    return () => scrollEl.removeEventListener("scroll", onScroll);
+  }, []);
 
   const add = async () => {
     const v = text.trim();
@@ -353,7 +371,7 @@ const GroceryScreen = ({ onBack }) => {
   const selectedList = lists.find(l => l.id === selectedListId);
 
   return (
-    <div className="scroll">
+    <div className="scroll" ref={scrollRef}>
       <TopBar title="קניות" onBack={onBack} />
 
       {lists.length === 0 ? (
@@ -462,76 +480,44 @@ const GroceryScreen = ({ onBack }) => {
             </div>
           </div>
 
-          <div className="px-22 vstack gap-12">
+          <div className="grocery-sticky" ref={stickyRef}>
             {selectedList && (
-              <div
-                className="card"
-                onClick={() => setActingOnList(selectedList)}
-                style={{
-                  padding: 18, background: "var(--mint)", border: "none",
-                  cursor: "pointer", display: "flex", alignItems: "center", gap: 12,
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="tiny" style={{ color: "var(--ink)", opacity: 0.7 }}>{selectedList.name}</div>
-                  <div className="h2" style={{ marginTop: 4 }}>
+              <div className="grocery-summary" onClick={() => setActingOnList(selectedList)}>
+                <div className="grocery-summary__main">
+                  <div className="grocery-summary__label">{selectedList.name}</div>
+                  <div className="grocery-summary__count">
                     {items.length === 0 ? "רשימה ריקה" : `${pending} פריטים`}
                   </div>
                   {done > 0 && (
-                    <div className="small" style={{ marginTop: 2, color: "var(--ink)", opacity: 0.7 }}>
-                      {done} סומנו
-                    </div>
+                    <div className="grocery-summary__meta">{done} סומנו</div>
                   )}
                 </div>
-                <div
-                  aria-label="עריכת הרשימה"
-                  style={{
-                    width: 36, height: 36, borderRadius: 12,
-                    background: "rgba(255,255,255,.4)",
-                    display: "grid", placeItems: "center", flexShrink: 0,
-                  }}
-                >
+                <div className="grocery-summary__action" aria-label="עריכת הרשימה">
                   <Icon name="more" size={18} color="var(--ink)" />
                 </div>
               </div>
             )}
 
-            <div style={{
-              background: "var(--paper)",
-              border: "1px solid var(--line)",
-              borderRadius: 18,
-              padding: 6,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}>
+            <div className="grocery-input">
               <input
                 value={text}
                 onChange={e => setText(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && add()}
                 placeholder={selectedListId ? "הוסף פריט…" : "בחר רשימה כדי להוסיף"}
                 disabled={!selectedListId}
-                style={{
-                  flex: 1, border: "none", background: "transparent", outline: "none",
-                  padding: "10px 14px", fontSize: 15, fontFamily: "inherit", minWidth: 0,
-                }}
               />
               <button
                 onClick={add}
                 title="הוסף"
                 disabled={!selectedListId || !text.trim()}
-                style={{
-                  width: 40, height: 40, borderRadius: 14, border: "none",
-                  background: "var(--ink)", color: "#fff",
-                  display: "grid", placeItems: "center", cursor: "pointer",
-                  opacity: (!selectedListId || !text.trim()) ? 0.4 : 1,
-                  flexShrink: 0,
-                }}
+                style={{ opacity: (!selectedListId || !text.trim()) ? 0.4 : 1 }}
               >
-                <Icon name="plus" size={18} />
+                <Icon name="plus" size={16} />
               </button>
             </div>
+          </div>
 
+          <div className="px-22 vstack gap-12" style={{ marginTop: 8 }}>
             <div className="hstack gap-6" style={{ overflowX: "auto", paddingBottom: 2 }}>
               {GROCERY_SECTIONS.map(s => (
                 <button
