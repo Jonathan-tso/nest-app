@@ -7,6 +7,12 @@ const SUGGESTIONS = [
   "תוסיף עגבניות לקניות",
 ];
 
+const PRESETS = [
+  { icon: "plus",     label: "הוסף הוצאה",    prompt: "אני רוצה לרשום הוצאה" },
+  { icon: "sparkles", label: "סיכום חודשי",    prompt: "תן לי סיכום של ההוצאות שלי החודש" },
+  { icon: "cart",     label: "הוסף לקניות",    prompt: "אני רוצה להוסיף פריט לרשימת הקניות" },
+];
+
 const ApiKeyPrompt = ({ onSave }) => {
   const [val, setVal] = React.useState("");
   return (
@@ -227,15 +233,26 @@ const AIChat = ({ onBack }) => {
       </div>
 
       <div style={{ flexShrink: 0, padding: "8px 22px 22px", background: "var(--paper)" }}>
-        {state.apiKey && visibleMessages.filter(m => m.role === "user").length === 0 && (
-          <div className="hstack gap-6" style={{ marginBottom: 10, flexWrap: "wrap" }}>
-            {SUGGESTIONS.map(s => (
-              <button key={s} className="chip outline" onClick={() => send(s)} style={{ fontFamily: "inherit" }}>
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="hstack gap-8" style={{ marginBottom: 10 }}>
+          {PRESETS.map(p => (
+            <button
+              key={p.label}
+              onClick={() => send(p.prompt)}
+              disabled={pending || !state.apiKey}
+              style={{
+                flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                padding: "10px 6px", borderRadius: 14, border: "1px solid var(--line)",
+                background: "var(--cream-soft)", cursor: "pointer", fontFamily: "inherit",
+                opacity: pending || !state.apiKey ? 0.4 : 1,
+              }}
+            >
+              <div style={{ width: 32, height: 32, borderRadius: 10, background: "var(--paper)", display: "grid", placeItems: "center", boxShadow: "0 1px 3px rgba(0,0,0,.08)" }}>
+                <Icon name={p.icon} size={16} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", lineHeight: 1.3 }}>{p.label}</span>
+            </button>
+          ))}
+        </div>
         <div className="ai-input-wrap">
           <div className="ai-input-inner">
             <input
