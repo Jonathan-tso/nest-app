@@ -43,7 +43,7 @@ const MonthDetail = ({ m, allExpenses, allBills, budget, onBack }) => {
                 }} />
               </div>
               <div className="small muted" style={{ marginTop: 6 }}>
-                {Math.round((total / budget) * 100)}% מתוך {shek(budget, 0)}
+                {Math.round((total / budget) * 100)}% מהתקציב
               </div>
             </>
           )}
@@ -230,7 +230,7 @@ const HistoryScreen = ({ onBack }) => {
                     </div>
                     {budgetPct !== null && (
                       <div className="small muted" style={{ marginTop: 2 }}>
-                        {budgetPct}% מתוך {shek(budget, 0)}
+                        {budgetPct}% מהתקציב
                       </div>
                     )}
                   </div>

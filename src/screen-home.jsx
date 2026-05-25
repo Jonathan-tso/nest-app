@@ -85,7 +85,7 @@ const SpendOverview = ({ expenses, budget, onOpen }) => {
           <div className="h1 num" style={{ marginTop: 4 }}>{shek(total, 0)}</div>
           {budgetPct !== null && (
             <div className="small muted" style={{ marginTop: 4 }}>
-              מתוך {shek(budget, 0)} · {budgetPct}% · תקציב
+              {budgetPct}% מהתקציב
             </div>
           )}
         </div>
