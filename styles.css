@@ -751,6 +751,7 @@ textarea.input { padding: 14px 16px; height: auto; min-height: 80px; resize: ver
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  box-shadow: 0 20px 10px -15px rgb(20 18 14 / 6%);
   transition:
     padding       .28s cubic-bezier(.4, 0, .2, 1),
     border-radius .28s cubic-bezier(.4, 0, .2, 1);
