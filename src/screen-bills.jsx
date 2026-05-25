@@ -497,12 +497,36 @@ const BillsScreen = ({ onBack }) => {
         position: "sticky",
         bottom: 96,
         marginTop: 16,
-        padding: "24px 22px 0",
-        background: "linear-gradient(to top, var(--paper) 55%, transparent)",
+        padding: "0 22px",
+        display: "flex",
+        justifyContent: "flex-start",
         zIndex: 5,
+        pointerEvents: "none",
       }}>
-        <button className="btn" onClick={() => setAdding(true)} style={{ width: "100%" }}>
-          <Icon name="plus" size={18} /> הוסף הוצאה
+        <button
+          onClick={() => setAdding(true)}
+          style={{
+            pointerEvents: "auto",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            background: "var(--ink)",
+            color: "#fff",
+            border: "none",
+            borderRadius: 999,
+            padding: "9px 14px",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            boxShadow: "0 6px 18px rgba(20,18,14,.18)",
+          }}
+        >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <Icon name="plus" size={12} />
+            <Icon name="receipt" size={14} />
+          </span>
+          הוסף הוצאה
         </button>
       </div>
 
