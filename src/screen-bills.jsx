@@ -412,10 +412,6 @@ const BillsScreen = ({ onBack }) => {
           <div className="h1 num" style={{ marginTop: 4 }}>{shek(totalDue, 0)}</div>
         </div>
 
-        <button className="btn" onClick={() => setAdding(true)} style={{ width: "100%" }}>
-          <Icon name="plus" size={18} /> הוסף הוצאה
-        </button>
-
         {bills.length > 0 && (
           <div className="hstack gap-6" style={{ overflowX: "auto", paddingBottom: 2 }}>
             {[
@@ -463,6 +459,19 @@ const BillsScreen = ({ onBack }) => {
             </div>
           ))
         )}
+      </div>
+
+      <div style={{
+        position: "sticky",
+        bottom: 96,
+        marginTop: 16,
+        padding: "24px 22px 0",
+        background: "linear-gradient(to top, var(--paper) 55%, transparent)",
+        zIndex: 5,
+      }}>
+        <button className="btn" onClick={() => setAdding(true)} style={{ width: "100%" }}>
+          <Icon name="plus" size={18} /> הוסף הוצאה
+        </button>
       </div>
 
       <BillDetailSheet
