@@ -25,7 +25,7 @@ const BottomNav = ({ active, onChange, onFab }) => (
 );
 
 const Shell = () => {
-  const { sendChatMessage, hydrating } = useAppState();
+  const { sendChatMessage } = useAppState();
   const [route, setRoute] = useState("home");
   const [addOpen, setAddOpen] = useState(false);
   const [stack, setStack] = useState(["home"]);
@@ -110,8 +110,6 @@ const Shell = () => {
     };
   }, [stack]);
 
-  if (hydrating) return <LoadingScreen />;
-
   return (
     <>
       <div ref={screenRef} style={{ position: "absolute", inset: 0 }}>
@@ -149,11 +147,20 @@ const Root = () => {
   );
 };
 
-const Gate = () => {
+const Gate = () => (
+  <AppStateProvider>
+    <PhoneFrame><Inner /></PhoneFrame>
+  </AppStateProvider>
+);
+
+const Inner = () => {
   const { session, profile, household, loading } = useAuth();
-  if (loading) return <PhoneFrame><LoadingScreen /></PhoneFrame>;
-  if (!session) return <PhoneFrame><AuthScreen /></PhoneFrame>;
-  if (!profile || !household) return <PhoneFrame><LoadingScreen /></PhoneFrame>;
+  const { hydrating } = useAppState();
+
+  if (loading) return <LoadingScreen />;
+  if (!session) return <AuthScreen />;
+  if (!profile || !household) return <LoadingScreen />;
+  if (hydrating) return <LoadingScreen />;
 
   try {
     const u = new URL(window.location.href);
@@ -163,11 +170,7 @@ const Gate = () => {
     }
   } catch (e) {}
 
-  return (
-    <AppStateProvider>
-      <PhoneFrame><Shell /></PhoneFrame>
-    </AppStateProvider>
-  );
+  return <Shell />;
 };
 
 ReactDOM.createRoot(document.getElementById("root")).render(<Root />);
