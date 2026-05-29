@@ -40,7 +40,7 @@ const ApiKeyPrompt = ({ onSave }) => {
 };
 
 const SettingsSheet = ({ open, onClose }) => {
-  const { state, setApiKey, setModel, setBudget, clearChat, wipeHousehold } = useAppState();
+  const { state, setApiKey, setModel, clearChat, wipeHousehold } = useAppState();
   const { signOut, profile } = useAuth();
   const [key, setKey] = React.useState("");
   React.useEffect(() => { if (open) setKey(state.apiKey || ""); }, [open, state.apiKey]);
@@ -73,13 +73,6 @@ const SettingsSheet = ({ open, onClose }) => {
             <option value="claude-sonnet-4-5">Sonnet 4.5</option>
             <option value="claude-opus-4-5">Opus 4.5</option>
           </select>
-        </div>
-
-        <div className="mt-16">
-          <div className="field-label">תקציב חודשי</div>
-          <input type="number" inputMode="numeric" className="input num"
-            value={state.budget || 0}
-            onChange={e => setBudget(parseInt(e.target.value) || 0)} />
         </div>
 
         <button className="btn mt-16" onClick={() => { setApiKey(key); onClose(); }}>שמור</button>

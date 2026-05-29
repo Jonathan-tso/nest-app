@@ -64,7 +64,7 @@ const OverdueBills = ({ bills, people, onOpen }) => {
   );
 };
 
-const SpendOverview = ({ expenses, budget, onOpen }) => {
+const SpendOverview = ({ expenses, onOpen }) => {
   const total = expenses.reduce((s, e) => s + e.amount, 0);
   const byCat = {};
   expenses.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + e.amount; });
@@ -74,7 +74,6 @@ const SpendOverview = ({ expenses, budget, onOpen }) => {
 
   const top5 = data.slice(0, 5);
   const donutData = top5.length > 0 ? top5 : [{ value: 1, color: "#E8E5DC", label: "", id: "empty" }];
-  const budgetPct = budget && total > 0 ? Math.round((total / budget) * 100) : null;
 
   return (
     <div className="card" onClick={onOpen} style={{ padding: 20, cursor: "pointer" }}>
@@ -83,11 +82,6 @@ const SpendOverview = ({ expenses, budget, onOpen }) => {
         <div>
           <div className="tiny">החודש</div>
           <div className="h1 num" style={{ marginTop: 4 }}>{shek(total, 0)}</div>
-          {budgetPct !== null && (
-            <div className="small muted" style={{ marginTop: 4 }}>
-              {budgetPct}% מהתקציב
-            </div>
-          )}
         </div>
         <Donut data={donutData} size={124} stroke={16} />
       </div>
@@ -349,7 +343,7 @@ const billMonthKey = (s) => {
 
 const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onAISubmit }) => {
   const { state } = useAppState();
-  const { expenses, bills, grocery, budget, people, insights } = state;
+  const { expenses, bills, grocery, people, insights } = state;
 
   const now = new Date();
   const nowMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -400,7 +394,7 @@ const HomeScreen = ({ nav, openBills, openGrocery, openExpense, openHistory, onA
         <AIInsightCard insights={insights} />
         <OverdueBills bills={bills} people={people} onOpen={openBills} />
         <BalanceCard balance={balance} people={people} onSettle={() => nav("household")} />
-        <SpendOverview expenses={combinedSpending} budget={budget} onOpen={openHistory} />
+        <SpendOverview expenses={combinedSpending} onOpen={openHistory} />
         <GroceryPreview items={grocery} people={people} onOpen={openGrocery} onAdd={openGrocery} />
         <RecentTransactions expenses={expenses} bills={bills} people={people} limit={5} onSeeAll={openBills} />
       </div>

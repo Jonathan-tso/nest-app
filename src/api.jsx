@@ -173,7 +173,6 @@ const executeTool = (name, input, state) => {
           household_members: state.people || [],
           current_user_id: state.userId,
           total_spent: totalSpent,
-          budget: state.budget,
           by_category: byCat,
           balances: balanceList,
           expenses_count: state.expenses.length,
@@ -246,7 +245,7 @@ async function callClaude({ apiKey, model = "claude-haiku-4-5", messages, people
   return await resp.json();
 }
 
-async function generateAIInsight({ apiKey, model = "claude-haiku-4-5", expenses, bills, budget }) {
+async function generateAIInsight({ apiKey, model = "claude-haiku-4-5", expenses, bills }) {
   const now = new Date();
   const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   const thisKey = monthKey(now);
@@ -263,7 +262,6 @@ async function generateAIInsight({ apiKey, model = "claude-haiku-4-5", expenses,
   const data = {
     thisMonth:   { total: thisTotal, byCategory: byCat },
     lastMonth:   { total: lastTotal },
-    budget,
     overdueBills: bills.filter(b => b.status === "overdue").length,
     unpaidBills:  bills.filter(b => !b.paid).map(b => ({ label: b.label, amount: b.amount, dueDate: b.dueDate })),
   };

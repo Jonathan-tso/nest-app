@@ -2,7 +2,7 @@
 
 const shek = (n, decimals = 0) => "₪" + (Number(n) || 0).toLocaleString("en-IL", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
-const MonthDetail = ({ m, allExpenses, allBills, budget, onBack }) => {
+const MonthDetail = ({ m, allExpenses, allBills, onBack }) => {
   const expenses = allExpenses.filter(e => {
     if (!e.createdAt) return false;
     const d = new Date(e.createdAt);
@@ -34,19 +34,6 @@ const MonthDetail = ({ m, allExpenses, allBills, budget, onBack }) => {
           <div className="small muted" style={{ marginTop: 2 }}>
             {combined.length > 0 ? `${combined.length} הוצאות` : "אין הוצאות לחודש זה"}
           </div>
-          {budget > 0 && (
-            <>
-              <div className="bar" style={{ marginTop: 12 }}>
-                <i style={{
-                  width: `${Math.min(Math.round((total / budget) * 100), 100)}%`,
-                  background: total > budget ? "var(--danger)" : "var(--ink)",
-                }} />
-              </div>
-              <div className="small muted" style={{ marginTop: 6 }}>
-                {Math.round((total / budget) * 100)}% מהתקציב
-              </div>
-            </>
-          )}
         </div>
 
         {/* Category breakdown */}
@@ -121,7 +108,6 @@ const HistoryScreen = ({ onBack }) => {
   const { state } = useAppState();
   const allExpenses = state.expenses;
   const allBills = state.bills || [];
-  const budget = state.budget;
   const now = new Date();
   const [selected, setSelected] = React.useState(null);
 
@@ -170,7 +156,6 @@ const HistoryScreen = ({ onBack }) => {
         m={selected}
         allExpenses={allExpenses}
         allBills={allBills}
-        budget={budget}
         onBack={() => setSelected(null)}
       />
     );
@@ -199,7 +184,6 @@ const HistoryScreen = ({ onBack }) => {
             const change = prev && prev.total > 0
               ? Math.round(((m.total - prev.total) / prev.total) * 100)
               : null;
-            const budgetPct = budget ? Math.round((m.total / budget) * 100) : null;
             const isCurrent = m.key === currentKey;
             const decreased = change !== null && change <= 0;
 
@@ -228,21 +212,8 @@ const HistoryScreen = ({ onBack }) => {
                         }}>החודש</span>
                       )}
                     </div>
-                    {budgetPct !== null && (
-                      <div className="small muted" style={{ marginTop: 2 }}>
-                        {budgetPct}% מהתקציב
-                      </div>
-                    )}
                   </div>
                 </div>
-                {budget && (
-                  <div className="bar" style={{ marginTop: 12 }}>
-                    <i style={{
-                      width: `${Math.min(budgetPct, 100)}%`,
-                      background: budgetPct > 100 ? "var(--danger)" : "var(--ink)",
-                    }} />
-                  </div>
-                )}
               </div>
             );
           })}

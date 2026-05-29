@@ -71,7 +71,7 @@ const AppStateProvider = ({ children }) => {
   const [selectedListId, setSelectedListId] = React.useState(null);
   const [people, setPeople] = React.useState([]);
   const [chat, setChat] = React.useState([]);
-  const [settings, setSettings] = React.useState({ apiKey: window.BASE44_SUPERAGENT_API_KEY || "enabled", model: "claude-haiku-4-5", budget: 8200 });
+  const [settings, setSettings] = React.useState({ apiKey: window.BASE44_SUPERAGENT_API_KEY || "enabled", model: "claude-haiku-4-5" });
   const [insights, setInsights] = React.useState([]);
   const [aiStage, setAiStage] = React.useState(null);
   const [hydrating, setHydrating] = React.useState(true);
@@ -140,7 +140,6 @@ const AppStateProvider = ({ children }) => {
         setSettings({
           apiKey: window.BASE44_SUPERAGENT_API_KEY || "enabled",
           model: stR.data.model || "claude-haiku-4-5",
-          budget: stR.data.budget || 8200,
         });
       }
       setInsights((insR.data || []).map(mapInsight));
@@ -159,7 +158,6 @@ const AppStateProvider = ({ children }) => {
             model: stR.data?.model || "claude-haiku-4-5",
             expenses: (expR.data || []).map(mapExpense),
             bills:    (bilR.data || []).map(mapBill),
-            budget:   stR.data?.budget || 0,
           }).then(async (insight) => {
             if (!insight?.title || !alive) return;
             const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
@@ -481,12 +479,10 @@ const AppStateProvider = ({ children }) => {
       profile_id: userId,
       api_key: next.apiKey,
       model: next.model,
-      budget: next.budget,
     });
   };
   const setApiKey = (apiKey) => saveSettings({ apiKey });
   const setModel  = (model)  => saveSettings({ model });
-  const setBudget = (budget) => saveSettings({ budget });
 
   // ===== Chat =====
   const persistChat = async (msg) => {
@@ -525,7 +521,6 @@ const AppStateProvider = ({ children }) => {
         model: s.model || "claude-haiku-4-5",
         expenses: curExpenses,
         bills: curBills,
-        budget: s.budget || 0,
       });
       if (!insight?.title) return;
       const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
@@ -599,7 +594,7 @@ const AppStateProvider = ({ children }) => {
   const value = {
     state: {
       expenses, bills, grocery, groceryLists, selectedListId,
-      people, chat, insights, ...settings, budget: settings.budget,
+      people, chat, insights, ...settings,
     },
     aiStage, pending: aiStage !== null, hydrating,
     addExpense, updateExpense, removeExpense,
@@ -608,7 +603,7 @@ const AppStateProvider = ({ children }) => {
     createGroceryList, renameGroceryList, deleteGroceryList, selectList,
     setListMembers, toggleListMember,
     updateMyProfile, removeMember, createInvite,
-    setApiKey, setModel, setBudget, saveSettings,
+    setApiKey, setModel, saveSettings,
     clearChat, wipeHousehold,
     sendChatMessage,
   };
